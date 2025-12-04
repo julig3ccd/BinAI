@@ -1,3 +1,5 @@
 torch
 angr
 transformers
+re
+json
