@@ -176,7 +176,11 @@ cython_debug/
 
 
 # Project specific data
-data/dataset-1/
+data/
+
+# Training outputs
+wandb/
+output/
 
 # macOS
 .DS_Store
