@@ -34,12 +34,15 @@ class ASM_Dataset(torch.utils.data.Dataset):
 tokenizer = AutoTokenizer.from_pretrained("hustcw/clap-asm", trust_remote_code=True)
 
 with open("data/x64-clang-3.5-O0_clambc.json") as fp:
-    asm = json.load(fp)
+    data = json.load(fp)
 
-print(asm)
+print(data["asm"])
+
+
+asm_list = [entry["func_instr"] for entry in data["asm"]]
 
 #move input tensors to CUDA device once training on GPU
-asm_input = tokenizer(asm, padding=True,return_tensors="pt") 
+asm_input = tokenizer(asm_list, padding=True,return_tensors="pt") 
 
 dataset = ASM_Dataset(asm_input)
 

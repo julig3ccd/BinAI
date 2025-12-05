@@ -38,10 +38,12 @@ class PreProcessor():
 
         return rebase_assembly
 
-    def get_assembly(self, functions):
-        file_assembly = []
+    def get_structured_asm(self, functions):
+    
+        file_asm = []
 
         for func_addr, func in functions:
+            func_item = {}
             func_assembly = {}
 
             if func.name.startswith('sub_') or func.name in ['UnresolvableCallTarget', 'UnresolvableJumpTarget']:
@@ -57,25 +59,38 @@ class PreProcessor():
                 #so the instructions can be rebased
                 for insn in disassembly:
                     func_assembly[hex(insn.address)] = f'{insn.mnemonic}, {insn.op_str}'  #construct assembly in format -> {0x401000: "push rbp", 0x401001: "mov rbp, rsp", 0x401004: "sub rsp, 0x20", }
-            print("assembly", func_assembly)
-            print("assembly len", len(func_assembly))
+            #print("assembly", func_assembly)
+            #print("assembly len", len(func_assembly))
 
             rebased_assembly = self.rebase(func_assembly)
-            print("rebased assembly", rebased_assembly)
-            print("rebased assembly len", len(rebased_assembly))
-
-            #keep function name
-            file_assembly.append(rebased_assembly)
-        return file_assembly    
+            #print("rebased assembly", rebased_assembly)
+            #print("rebased assembly len", len(rebased_assembly))
+            
+            #construct func item and add it to the files assembly data
+            func_item["func_name"] = func.name
+            func_item["func_instr"] = rebased_assembly
+            file_asm.append(func_item)   
+        print("file: ", file_asm)
+        return file_asm    
 
 
     def process_bin(self,path=None):
+            data = {}
+            pattern = r'^([^-]+)-([^-]+(?:-[^-]+)*?)-([O]\d)_(.+)$'
             BIN_NAME = "x64-clang-3.5-O0_clambc"
+            match = re.match(pattern, BIN_NAME)
+            if match:
+                arch, compiler, opt, project = match.groups()
             BINARY_PATH = "../data/Dataset-1/clamav/x64-clang-3.5-O0_clambc" 
             output_path = "../data/" + BIN_NAME +  '.json'
             proj = angr.Project(BINARY_PATH, auto_load_libs=False)
             cfg = proj.analyses.CFGFast(normalize=True)
 
             function_list = cfg.functions.items()
-            result = self.get_assembly(function_list)
-            json.dump(result, open(output_path, 'w'))
+            result = self.get_structured_asm(function_list)
+            data["compiler"] = compiler
+            data["optimization"] = opt
+            data["project"] = project
+            data["asm"] = result
+        
+            json.dump(data, open(output_path, 'w'))
