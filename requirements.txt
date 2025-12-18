@@ -1,5 +1,4 @@
 torch
 angr
-transformers
-re
-json
+transformers[torch]
+wandb
