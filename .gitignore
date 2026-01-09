@@ -184,3 +184,4 @@ output/
 
 # macOS
 .DS_Store
+scripts/copy_x64_files.py
