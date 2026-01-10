@@ -8,8 +8,14 @@ from collections import defaultdict
 
 
 class PreProcessor(): 
-    loc_pattern = re.compile(r' (loc|locret)_(\w+)')
-    pattern = re.compile(r'\$\+(\w+)')
+
+    def __init__(self, detect_similar_fct=True):
+
+      self.loc_pattern = re.compile(r' (loc|locret)_(\w+)')
+      self.pattern = re.compile(r'\$\+(\w+)')
+      self.similar_fct_dict = defaultdict(list)
+      self.detect_similar_fct = detect_similar_fct
+    
 
     def rebase(self,asm_dict):
         index = 1
@@ -42,7 +48,7 @@ class PreProcessor():
 
         return rebase_assembly
 
-    def get_structured_asm(self, functions):
+    def get_structured_asm(self, functions, metadata):
         #start_disassembly = time.time()
         file_asm = []
 
@@ -68,12 +74,19 @@ class PreProcessor():
             rebased_assembly = self.rebase(func_assembly)
             #print("rebased assembly", rebased_assembly)
             #print("rebased assembly len", len(rebased_assembly))
-            
+            #add to fct pool dict to determine 
             #construct func item and add it to the files assembly data
             file_asm.append({
                 "func_name": func.name,
                 "func_instr": rebased_assembly
             })
+            #insert fct into fct pools dict
+            if self.detect_similar_fct:
+                self.similar_fct_dict[func.name].append({
+                    "metadata": metadata,
+                    "asm": rebased_assembly
+                    })
+
         #end_disassembly = time.time()
         #print(f'took {end_disassembly-start_disassembly} seconds to get asm')
         return file_asm    
@@ -88,6 +101,8 @@ class PreProcessor():
             match = re.match(pattern, bin_name)
             if match:
                 arch, compiler, opt, project = match.groups()
+            
+            metadata = {"comp": compiler, "opt": opt, "proj": project, "bin_name":bin_name}
         
             print(f'creating angr project for {binary_path}', flush=True)
             proj = angr.Project(binary_path, 
@@ -104,7 +119,8 @@ class PreProcessor():
             print(f'took {end_cfg_analysis-start_cfg_analyis} seconds to analyse cfg')
             function_list = cfg.functions.items()
             print("getting asm...", flush=True)
-            result = self.get_structured_asm(function_list)
+
+            result = self.get_structured_asm(function_list, metadata)
             data["compiler"] = compiler
             data["optimization"] = opt
             data["project"] = project
@@ -122,6 +138,10 @@ class PreProcessor():
                     if os.path.isdir(os.path.join(dataset_path, p)) and not p.startswith(".")]  #ignore hidden files
         print(f'projects {projects}')
         for p_idx, proj in enumerate(projects):
+            if self.detect_similar_fct:
+                #clear dict for new project
+                self.similar_fct_dict = defaultdict(list)
+
             proj_data=[]
             project_path=f'{dataset_path}/{proj}'
             print(f'project path {project_path}')
@@ -131,5 +151,17 @@ class PreProcessor():
                 file_asm=self.process_binary_file(f'{project_path}/{filename}')
                 proj_data.append(file_asm)
                 print(f'[{p_idx+1}/{len(projects)}] projects and [{f_idx+1}/{len(filenames)}] files done', flush=True)
+            if self.detect_similar_fct:
+                #filter out names with duplicates
+                start_filter = time.time()
+                self.similar_fct_dict = {
+                                         func_name: variants 
+                                         for func_name, variants in self.similar_fct_dict.items() 
+                                         if len(variants) > 1
+                                         }
+                end_filter = time.time()
+                print(f'took {end_filter-start_filter} seconds filter out the duplicates')
+                json.dump((self.similar_fct_dict), open(f'{output_path}/{proj}_similar_functions.json', 'w'))
+
             json.dump(proj_data, open(f'{output_path}/{proj}.json', 'w'))
         
