@@ -3,6 +3,7 @@ from transformers import BertForMaskedLM, BertConfig, AutoTokenizer, DataCollato
 import wandb
 from dataclasses import dataclass
 import json
+import os
 
 
 
@@ -17,7 +18,7 @@ class args:
     num_epochs=3
     warm_up_epochs=2
 
-class ASM_Dataset(torch.utils.data.Dataset):
+class ASM_Train_Dataset(torch.utils.data.Dataset):
     def __init__(self, encodings):
         self.encodings = encodings
     
@@ -32,19 +33,28 @@ class ASM_Dataset(torch.utils.data.Dataset):
 
 
 tokenizer = AutoTokenizer.from_pretrained("hustcw/clap-asm", trust_remote_code=True)
+trainset_path = "data/preprocessed_test_data"
 
-with open("data/x64-clang-3.5-O0_clambc.json") as fp:
-    data = json.load(fp)
+projects = os.listdir(trainset_path)
+print(f'BUILDING DATASET WITH PROJECTS: {projects}')
 
-print(data["asm"])
+asm_list = []
+for proj in projects:
+   with open(f'{trainset_path}/{proj}') as fp:
+       data = json.load(fp)
+   proj_insn = [entry["func_instr"] for file in data for entry in file["asm"]]
+   asm_list+=proj_insn  
+
+print("INSN BEFORE TOKENIZEATION: \n" , asm_list[:5])
 
 
-asm_list = [entry["func_instr"] for entry in data["asm"]]
+
+#asm_list = [entry["func_instr"] for entry in data["asm"]]
 
 #move input tensors to CUDA device once training on GPU
 asm_input = tokenizer(asm_list, padding=True,return_tensors="pt") 
 
-dataset = ASM_Dataset(asm_input)
+dataset = ASM_Train_Dataset(asm_input)
 
 data_collator = DataCollatorForLanguageModeling(
     tokenizer=tokenizer,
