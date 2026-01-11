@@ -13,9 +13,8 @@ class PreProcessor():
 
       self.loc_pattern = re.compile(r' (loc|locret)_(\w+)')
       self.pattern = re.compile(r'\$\+(\w+)')
-      self.similar_fct_dict = defaultdict(list)
       self.detect_similar_fct = detect_similar_fct
-    
+      self.similar_fct_dict = defaultdict(list)
 
     def rebase(self,asm_dict):
         index = 1
@@ -81,6 +80,7 @@ class PreProcessor():
                 "func_instr": rebased_assembly
             })
             #insert fct into fct pools dict
+            #TODO filter out small fcts, and maybe also fcts that contain "sub"
             if self.detect_similar_fct:
                 self.similar_fct_dict[func.name].append({
                     "metadata": metadata,
@@ -161,7 +161,9 @@ class PreProcessor():
                                          }
                 end_filter = time.time()
                 print(f'took {end_filter-start_filter} seconds filter out the duplicates')
-                json.dump((self.similar_fct_dict), open(f'{output_path}/{proj}_similar_functions.json', 'w'))
+                json.dump((self.similar_fct_dict),
+                           open(f'{output_path}/{proj}_similar_functions.json', 'w'))
+
 
             json.dump(proj_data, open(f'{output_path}/{proj}.json', 'w'))
-        
+            
