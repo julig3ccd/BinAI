@@ -9,7 +9,7 @@ from collections import defaultdict
 
 class PreProcessor(): 
 
-    def __init__(self, detect_similar_fct=True):
+    def __init__(self, detect_similar_fct=False):
 
       self.loc_pattern = re.compile(r' (loc|locret)_(\w+)')
       self.pattern = re.compile(r'\$\+(\w+)')
@@ -53,8 +53,8 @@ class PreProcessor():
 
         for func_addr, func in functions:
             func_assembly = {}
-
-            if func.name.startswith('sub_') or func.name in ['UnresolvableCallTarget', 'UnresolvableJumpTarget']:
+            #filter out functions that contain sub_ bc it is not always at very beginning of fct name
+            if "sub_" in func.name or func.name in ['UnresolvableCallTarget', 'UnresolvableJumpTarget']:
                 continue
             #print(func.name, flush=True)
            
@@ -69,10 +69,15 @@ class PreProcessor():
                     func_assembly[hex(insn.address)] = f'{insn.mnemonic} {insn.op_str}'  #construct assembly in format -> {0x401000: "push rbp", 0x401001: "mov rbp, rsp", 0x401004: "sub rsp, 0x20", }
             #print("assembly", func_assembly)
             #print("assembly len", len(func_assembly))
+            
+            #do not further process fcts with less than 4 insns
+            if len(func_assembly) < 4:
+                continue
 
             rebased_assembly = self.rebase(func_assembly)
             #print("rebased assembly", rebased_assembly)
             #print("rebased assembly len", len(rebased_assembly))
+            
             #add to fct pool dict to determine 
             #construct func item and add it to the files assembly data
             file_asm.append({
@@ -80,7 +85,6 @@ class PreProcessor():
                 "func_instr": rebased_assembly
             })
             #insert fct into fct pools dict
-            #TODO filter out small fcts, and maybe also fcts that contain "sub"
             if self.detect_similar_fct:
                 self.similar_fct_dict[func.name].append({
                     "metadata": metadata,
@@ -92,7 +96,10 @@ class PreProcessor():
         return file_asm    
 
 
-    def process_binary_file(self,binary_path="../data/Dataset-1-X64/openssl/x64-clang-3.5-O0_libcrypto.so.3", dump_json=False):
+    def process_binary_file(self,
+                            binary_path="../data/Dataset-1-X64/openssl/x64-clang-3.5-O0_libcrypto.so.3",
+                             proj_name=None,
+                               dump_json=False):
             start=time.time()
             data = {}
             
@@ -102,12 +109,12 @@ class PreProcessor():
             if match:
                 arch, compiler, opt, project = match.groups()
             
-            metadata = {"comp": compiler, "opt": opt, "proj": project, "bin_name":bin_name}
+            metadata = {"comp": compiler, "opt": opt, "proj": proj_name, "bin_name":bin_name}
         
-            print(f'creating angr project for {binary_path}', flush=True)
+            #print(f'creating angr project for {binary_path}', flush=True)
             proj = angr.Project(binary_path, 
                                 load_options={'auto_load_libs': False})
-            print("analysing cfg...", flush=True)
+            #print("analysing cfg...", flush=True)
             start_cfg_analyis= time.time()
             cfg = proj.analyses.CFGFast( normalize=False,
                                          resolve_indirect_jumps=False,
@@ -118,12 +125,12 @@ class PreProcessor():
             end_cfg_analysis=time.time()
             print(f'took {end_cfg_analysis-start_cfg_analyis} seconds to analyse cfg')
             function_list = cfg.functions.items()
-            print("getting asm...", flush=True)
+            #print("getting asm...", flush=True)
 
             result = self.get_structured_asm(function_list, metadata)
             data["compiler"] = compiler
             data["optimization"] = opt
-            data["project"] = project
+            data["project"] = proj_name
             data["asm"] = result
             end=time.time()
             print(f'took {end-start} seconds to fully preprocess "{bin_name}"')
@@ -132,7 +139,7 @@ class PreProcessor():
                 json.dump(data, open(output_path, 'w'))
             return data
 
-    def process_binary_dataset(self, dataset_path="../data/test_dataset", output_path = "../data"):
+    def process_binary_dataset(self, dataset_path="../data/Dataset-1-X64-test", output_path = "../data/PreProcessed_Data"):
         
         projects = [p for p in os.listdir(dataset_path) 
                     if os.path.isdir(os.path.join(dataset_path, p)) and not p.startswith(".")]  #ignore hidden files
@@ -148,16 +155,16 @@ class PreProcessor():
             filenames = [f for f in os.listdir(project_path) if not f.startswith(".")] 
             print(f'filenames {filenames}')
             for f_idx, filename in enumerate(filenames):
-                file_asm=self.process_binary_file(f'{project_path}/{filename}')
+                file_asm=self.process_binary_file(f'{project_path}/{filename}', proj_name=proj)
                 proj_data.append(file_asm)
                 print(f'[{p_idx+1}/{len(projects)}] projects and [{f_idx+1}/{len(filenames)}] files done', flush=True)
             if self.detect_similar_fct:
-                #filter out names with duplicates
+                #only keep functions that have at least 4 variants
                 start_filter = time.time()
                 self.similar_fct_dict = {
                                          func_name: variants 
                                          for func_name, variants in self.similar_fct_dict.items() 
-                                         if len(variants) > 1
+                                         if len(variants) >= 4
                                          }
                 end_filter = time.time()
                 print(f'took {end_filter-start_filter} seconds filter out the duplicates')
