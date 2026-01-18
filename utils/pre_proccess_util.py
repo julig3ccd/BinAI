@@ -51,13 +51,17 @@ class PreProcessor():
         #start_disassembly = time.time()
         file_asm = []
 
-        for func_addr, func in functions:
+        #create set of unique fct names per file, to remove duplicates with same metadata
+        func_name_set = {func.name for _ , func in functions.items()}
+
+
+        for f_name in func_name_set:
             func_assembly = {}
             #filter out functions that contain sub_ bc it is not always at very beginning of fct name
-            if "sub_" in func.name or func.name in ['UnresolvableCallTarget', 'UnresolvableJumpTarget']:
+            if "sub_" in f_name or f_name in ['UnresolvableCallTarget', 'UnresolvableJumpTarget']:
                 continue
             #print(func.name, flush=True)
-           
+            func = functions[f_name]
             for block in func.blocks:
                 block_addr = block.addr
                 #print(block_addr)
@@ -124,10 +128,10 @@ class PreProcessor():
                                          force_smart_scan=False)
             end_cfg_analysis=time.time()
             print(f'took {end_cfg_analysis-start_cfg_analyis} seconds to analyse cfg')
-            function_list = cfg.functions.items()
+            functions = cfg.functions
             #print("getting asm...", flush=True)
 
-            result = self.get_structured_asm(function_list, metadata)
+            result = self.get_structured_asm(functions, metadata)
             data["compiler"] = compiler
             data["optimization"] = opt
             data["project"] = proj_name
@@ -159,13 +163,17 @@ class PreProcessor():
                 proj_data.append(file_asm)
                 print(f'[{p_idx+1}/{len(projects)}] projects and [{f_idx+1}/{len(filenames)}] files done', flush=True)
             if self.detect_similar_fct:
-                #only keep functions that have at least 4 variants
+
                 start_filter = time.time()
+                print(f'sim fct_dict_before_variant_filter {len(self.similar_fct_dict)}')
+                #only keep fcts that have at least two variants
                 self.similar_fct_dict = {
                                          func_name: variants 
                                          for func_name, variants in self.similar_fct_dict.items() 
-                                         if len(variants) >= 4
+                                         if len(variants) >= 2
                                          }
+                print(f'sim fct_dict_after_variant_filter {len(self.similar_fct_dict)}')
+
                 end_filter = time.time()
                 print(f'took {end_filter-start_filter} seconds filter out the duplicates')
                 json.dump((self.similar_fct_dict),

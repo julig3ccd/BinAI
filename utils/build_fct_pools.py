@@ -4,28 +4,31 @@ import random
 
 class Pool_Util():
 
-   def create_pools(self,data_dir="../data/PreProcessed_Data/test_set/" ,
+   def create_pools(self,preprocessed_data_dir="../data/PreProcessed_Data/test_set/" ,
                      num_samples=100,
                        min_variants=4,
-                       test_projects=["zlib.json","unrar.json"]): 
+                       test_projects=["zlib","unrar"]): 
     
      pools={}
-     fct_names={}
-     sim_fcts_dir= f'{data_dir}/similar_fcts'
-     projects = [f for f in os.listdir(sim_fcts_dir) if not f.startswith(".")]
+     p_names_label = ""
+     sim_fcts_dir= f'{preprocessed_data_dir}/similar_fcts'
+     #projects = [f for f in os.listdir(sim_fcts_dir) if not f.startswith(".")]
 
      print(f'starting pool creation with: \n'
            + f'   *** {num_samples} NEGATIVE samples per pool \n'
              + f'   *** {min_variants} VARIANTS including anchor\n'
-               + f'   *** PROJECTS: {projects}')
+               + f'   *** PROJECTS: {test_projects}')
 
-     cross_proj_fcts = []
-     for proj in projects:
-       with open(f'{sim_fcts_dir}/{proj}', 'r') as f:
+     
+
+     for proj in test_projects:
+       p_names_label += f'{proj}_'
+       with open(f'{preprocessed_data_dir}/{proj}_similar_functions.json', 'r') as f:
          fcts = json.load(f)
          
        for idx, (func_name, variants) in enumerate(fcts.items()):   
          # only include functions with at least 4 variants (1 anchor -> 3 pos samples) in pools
+         print(f'num variants for {func_name}: {len(variants)}')
          if len(variants) >= min_variants:
             anchor_metadata=variants[0]["metadata"]
             anchor_key= f'{func_name}_{anchor_metadata["bin_name"]}_{anchor_metadata["proj"]}'
@@ -35,13 +38,13 @@ class Pool_Util():
             pool["neg"]=[self.sample_random_neg_samples(func_name=func_name,
                                                          num_samples=num_samples,
                                                          test_projects=test_projects,
-                                                         data_dir=data_dir
+                                                         data_dir=preprocessed_data_dir
                                                          )]
             pools[anchor_key]=pool
             print(f'added a fct pool')   
          print(f'processed {idx} fcts')    
      print(f'built {len(pools)} fct pools')
-     json.dump(pools, open(f'{sim_fcts_dir}/pools.json', 'w'))
+     json.dump(pools, open(f'{preprocessed_data_dir}/{p_names_label}_pools.json', 'w'))
  
 
 
@@ -57,7 +60,7 @@ class Pool_Util():
         else: 
           p_num_samples=samples_per_proj
    
-        with open(f'{data_dir}/{p}', 'r') as f:
+        with open(f'{data_dir}/{p}.json', 'r') as f:
           proj_data = json.load(f) 
         proj_samples=[]  
         #print(f'sampling {p_num_samples} from {p}')
