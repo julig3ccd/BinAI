@@ -7,7 +7,8 @@ class Pool_Util():
    def create_pools(self,preprocessed_data_dir="../data/PreProcessed_Data/test_set/" ,
                      num_samples=100,
                        min_variants=4,
-                       test_projects=["zlib","unrar"]): 
+                       test_projects=["zlib","unrar"], 
+                       max_pools=None): 
     
      pools={}
      p_names_label = ""
@@ -22,26 +23,33 @@ class Pool_Util():
      
 
      for proj in test_projects:
+       if len(pools) == max_pools:
+              break
        p_names_label += f'{proj}_'
        with open(f'{preprocessed_data_dir}/{proj}_similar_functions.json', 'r') as f:
          fcts = json.load(f)
          
        for idx, (func_name, variants) in enumerate(fcts.items()):   
          # only include functions with at least 4 variants (1 anchor -> 3 pos samples) in pools
+         if len(pools) == max_pools:
+              break
          print(f'num variants for {func_name}: {len(variants)}')
          if len(variants) >= min_variants:
             anchor_metadata=variants[0]["metadata"]
             anchor_key= f'{func_name}_{anchor_metadata["bin_name"]}_{anchor_metadata["proj"]}'
             pool={}
             pool["anchor"]=variants[0] #first variant is anchor
-            pool["pos"]=variants[1:] # all other variants are pos samples
-            pool["neg"]=[self.sample_random_neg_samples(func_name=func_name,
+            pool["pos"] = [{
+                    "id": f'{func_name}_{var["metadata"]["bin_name"]}_{var["metadata"]["proj"]}',
+                         "metadata": {**var["metadata"], "func_name": func_name},
+                         "asm": var["asm"]} for var in variants[1:] ] # all other variants are pos samples
+            pool["neg"]=self.sample_random_neg_samples(func_name=func_name,
                                                          num_samples=num_samples,
                                                          test_projects=test_projects,
                                                          data_dir=preprocessed_data_dir
-                                                         )]
+                                                         )
             pools[anchor_key]=pool
-            print(f'added a fct pool')   
+            print(f'added a fct pool')  
          print(f'processed {idx} fcts')    
      print(f'built {len(pools)} fct pools')
      json.dump(pools, open(f'{preprocessed_data_dir}/{p_names_label}_pools.json', 'w'))
@@ -69,11 +77,13 @@ class Pool_Util():
           sample_func=random.choice(sample_file["asm"])
           if sample_func["func_name"] != func_name:
             proj_samples.append(
-              {
+              { 
+                "id": f'{sample_func["func_name"]}_{sample_file["bin_name"]}_{sample_file["proj"]}',
                 "metadata": {
-                 "comp": sample_file["compiler"],
-                 "opt": sample_file["optimization"],
-                 "proj": sample_file["project"],
+                 "comp": sample_file["comp"],
+                 "opt": sample_file["opt"],
+                 "proj": sample_file["proj"],
+                 "bin_name": sample_file["bin_name"],
                  "func_name":sample_func["func_name"]
                },
                "asm": 

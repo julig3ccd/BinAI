@@ -132,9 +132,10 @@ class PreProcessor():
             #print("getting asm...", flush=True)
 
             result = self.get_structured_asm(functions, metadata)
-            data["compiler"] = compiler
-            data["optimization"] = opt
-            data["project"] = proj_name
+            data["comp"] = compiler
+            data["opt"] = opt
+            data["proj"] = proj_name
+            data["bin_name"] = bin_name
             data["asm"] = result
             end=time.time()
             print(f'took {end-start} seconds to fully preprocess "{bin_name}"')
@@ -166,7 +167,7 @@ class PreProcessor():
 
                 start_filter = time.time()
                 print(f'sim fct_dict_before_variant_filter {len(self.similar_fct_dict)}')
-                #only keep fcts that have at least two variants
+                #only keep fcts that have at least one similar fct
                 self.similar_fct_dict = {
                                          func_name: variants 
                                          for func_name, variants in self.similar_fct_dict.items() 
