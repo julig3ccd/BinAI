@@ -163,13 +163,17 @@ class PreProcessor():
                 proj_data.append(file_asm)
                 print(f'[{p_idx+1}/{len(projects)}] projects and [{f_idx+1}/{len(filenames)}] files done', flush=True)
             if self.detect_similar_fct:
-                #only keep functions that have at least 4 variants
+
                 start_filter = time.time()
+                print(f'sim fct_dict_before_variant_filter {len(self.similar_fct_dict)}')
+                #only keep fcts that have at least two variants
                 self.similar_fct_dict = {
                                          func_name: variants 
                                          for func_name, variants in self.similar_fct_dict.items() 
-                                         if len(variants) >= 4
+                                         if len(variants) >= 2
                                          }
+                print(f'sim fct_dict_after_variant_filter {len(self.similar_fct_dict)}')
+
                 end_filter = time.time()
                 print(f'took {end_filter-start_filter} seconds filter out the duplicates')
                 json.dump((self.similar_fct_dict),
