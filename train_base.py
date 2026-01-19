@@ -69,7 +69,15 @@ config = BertConfig(
     max_position_embeddings=1024 #match the max instr of tokenizer 1024
 )
 
-model = BertForMaskedLM(config)
+if torch.cuda.is_available():
+    deviceStr= "cuda"
+    print("GPU found!")
+else:    
+    deviceStr= "cpu"
+    print("No GPU found, running on CPU!") 
+device = torch.device(deviceStr)
+
+model = BertForMaskedLM(config).to(device)
 
 wandb.init(
     project="BinAI-MLM",
@@ -80,7 +88,8 @@ training_args = TrainingArguments(output_dir="output",
                                 num_train_epochs=args.num_epochs,
                                  logging_steps=10,
                                 report_to="wandb",         
-                                run_name="bert-mlm-test", )
+                                run_name="bert-mlm-test",
+                                 fp16=True )
 
 trainer = Trainer(model=model, args=training_args, train_dataset=dataset, data_collator=data_collator)
 trainer.train()
