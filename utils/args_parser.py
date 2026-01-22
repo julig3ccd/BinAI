@@ -5,7 +5,7 @@ class Parser:
         self.parser = argparse.ArgumentParser() 
     
         self.parser.add_argument("--epochs", type=int, default=10, help="Number of epochs")
-        self.parser.add_argument("--warm_up_epochs", type=int, default=2)
+        self.parser.add_argument("--warm_up_epochs", type=int, default=0)
         self.parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
         self.parser.add_argument("--model", type=str, help="Model name")
         self.parser.add_argument("--batch_size", type=int, default=8)

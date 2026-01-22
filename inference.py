@@ -185,7 +185,11 @@ def main(args):
         num_workers=args.num_workers
     )
 
-    model = BertForMaskedLM(config)
+    if args.checkpoint:
+       print(f"***LOAD MODEL FOR INFERENCE FROM CHECKPOINT: \n {args.checkpoint}")
+       model = BertForMaskedLM.from_pretrained(args.checkpoint)
+    else:
+       raise ValueError(f"NO CHECKPOINT PROVIDED FOR INFERENCE, \n Pass --checkpoint <path>.")   
 
     model.eval()
 
