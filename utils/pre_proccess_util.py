@@ -7,6 +7,7 @@ import time
 from collections import defaultdict
 
 
+
 class PreProcessor(): 
 
     def __init__(self, detect_similar_fct=False):
@@ -147,7 +148,7 @@ class PreProcessor():
     def process_binary_dataset(self, dataset_path="../data/Dataset-1-X64-test", output_path = "../data/PreProcessed_Data"):
         
         projects = [p for p in os.listdir(dataset_path) 
-                    if os.path.isdir(os.path.join(dataset_path, p)) and not p.startswith(".")]  #ignore hidden files
+                    if os.path.isdir(os.path.join(dataset_path, p)) and not p.startswith(".") and not p.startswith("ignore")]  #ignore hidden files
         print(f'projects {projects}')
         for p_idx, proj in enumerate(projects):
             if self.detect_similar_fct:
@@ -166,14 +167,14 @@ class PreProcessor():
             if self.detect_similar_fct:
 
                 start_filter = time.time()
-                print(f'sim fct_dict_before_variant_filter {len(self.similar_fct_dict)}')
+                #print(f'sim fct_dict_before_variant_filter {len(self.similar_fct_dict)}')
                 #only keep fcts that have at least one similar fct
                 self.similar_fct_dict = {
                                          func_name: variants 
                                          for func_name, variants in self.similar_fct_dict.items() 
                                          if len(variants) >= 2
                                          }
-                print(f'sim fct_dict_after_variant_filter {len(self.similar_fct_dict)}')
+                #print(f'sim fct_dict_after_variant_filter {len(self.similar_fct_dict)}')
 
                 end_filter = time.time()
                 print(f'took {end_filter-start_filter} seconds filter out the duplicates')
@@ -182,4 +183,12 @@ class PreProcessor():
 
 
             json.dump(proj_data, open(f'{output_path}/{proj}.json', 'w'))
-            
+
+def main():
+    processor = PreProcessor(detect_similar_fct=False)
+    in_path= "../data/Dataset-1-X64-train"
+    out_path= "../preprocessed_data/train"
+    processor.process_binary_dataset(dataset_path=in_path, output_path=out_path)
+
+if __name__ == "__main__":
+    main()
