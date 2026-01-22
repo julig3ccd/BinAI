@@ -30,6 +30,7 @@ def collate_candidate_data(batch):
    attention_mask = [item['attention_mask'] for item in batch]
    labels = [item['label'] for item in batch]
    anchor_ids = [item['anchor_id'] for item in batch]
+   metadata = [item['metadata'] for item in batch]
 
 
    input_ids_padded = pad_sequence(input_ids, batch_first=True, padding_value=0)
@@ -39,7 +40,8 @@ def collate_candidate_data(batch):
       'input_ids': input_ids_padded,
       'attention_mask': attention_mask_padded,
       'label': labels,
-      'anchor_id': anchor_ids
+      'anchor_id': anchor_ids,
+      'metadata': metadata
    }
 
 class ASM_Anchor_Dataset(torch.utils.data.Dataset):
@@ -81,6 +83,7 @@ class ASM_Candidate_Dataset(torch.utils.data.Dataset):
          'attention_mask': self.candidates['attention_mask'][idx],
          'anchor_id': self.anchor_ids[idx],
          'label': self.labels[idx],
+         'metadata': self.metadata[idx],
       }   
 
 def flatten_candidate_data(pool): 
@@ -152,6 +155,26 @@ def build_test_dataset(pad_input, tokenizer, path):
                             labels=all_labels,
                             metadata=all_metadata), anchor_ids, tokenized_anchors
 
+def sort_results(cos_results_path):
+   with open(cos_results_path, 'r') as f:
+      cos_sim_pools = json.load(f)
+
+   gt_idcs_global={}
+   pred_sorted = {}
+   for id, pool in cos_sim_pools.items():
+      cos_sorted_pool = sorted(pool,
+                             key= lambda x: x['sim'],
+                             reverse=True) 
+      pred_sorted[id] = cos_sorted_pool
+      gt_idcs=[]
+      for idx, func in enumerate(cos_sorted_pool):  
+         if func["label"]==True:
+            gt_idcs.append(idx) 
+      gt_idcs_global[id]=gt_idcs
+
+      #TODO compute MRR on ranked dictionary & ground truth indeces
+
+         
 
 def main(args):
     tokenizer = AutoTokenizer.from_pretrained("hustcw/clap-asm", trust_remote_code=True)
@@ -160,15 +183,6 @@ def main(args):
 
     anchor_data_set = ASM_Anchor_Dataset(ids=anch_ids,
                                           input=anch_in)
-
-
-    config = BertConfig(
-        vocab_size= tokenizer.vocab_size,
-        num_hidden_layers=args.num_hidden_layers,
-        num_attention_heads=args.num_heads,
-        output_hidden_states=True,
-        max_position_embeddings=1024 #match the max instr of tokenizer 1024
-    )
 
     anchor_dataloader = torch.utils.data.DataLoader(
        anchor_data_set,
@@ -185,13 +199,24 @@ def main(args):
         num_workers=args.num_workers
     )
 
-    if args.checkpoint:
-       print(f"***LOAD MODEL FOR INFERENCE FROM CHECKPOINT: \n {args.checkpoint}")
-       model = BertForMaskedLM.from_pretrained(args.checkpoint)
+    if args.checkpoint=="test":
+       config = BertConfig(
+        vocab_size= tokenizer.vocab_size,
+        num_hidden_layers=args.num_hidden_layers,
+        num_attention_heads=args.num_heads,
+        max_position_embeddings=1024, #match the max instr of tokenizer 1024
+      )
+       model =BertForMaskedLM(config)
+
+    elif args.checkpoint:
+      print(f"***LOAD MODEL FOR INFERENCE FROM CHECKPOINT: \n {args.checkpoint}")
+      model = BertForMaskedLM.from_pretrained(args.checkpoint)
+
     else:
        raise ValueError(f"NO CHECKPOINT PROVIDED FOR INFERENCE, \n Pass --checkpoint <path>.")   
 
     model.eval()
+    model.config.output_hidden_states=True
 
     anchor_emb_dict = {}
 
@@ -212,6 +237,7 @@ def main(args):
        for batch in tqdm(candidate_dataloader, desc="Processing candidates"):
           labels = batch.pop('label')
           anchor_ids = batch.pop('anchor_id')
+          metadata = batch.pop('metadata')
 
           outputs = model(**batch)
           cand_cls_emb = outputs.hidden_states[-1][:,0,:]
@@ -221,10 +247,15 @@ def main(args):
           #compute cos sim for this batch
           similarities = F.cosine_similarity(cand_cls_emb, anchor_batch, dim=1)
 
-          for idx, (anchor_id, sim, label) in enumerate(zip(anchor_ids, similarities, labels)):
-             results[anchor_id].append({'sim': sim.item(), 'label': label}) 
-             #TODO see how best to track metadata or name in here (from batch directly) or through dataset look up
+          for idx, (anchor_id, sim, label, metadata) in enumerate(zip(anchor_ids, similarities, labels, metadata)):
+             results[anchor_id].append({'sim': sim.item(),
+                                         'label': label,
+                                           'metadata': metadata
+                                        }) 
+             
     json.dump(results, open("out/results.json", "w"))
+
+
 
 
 if __name__ == "__main__":

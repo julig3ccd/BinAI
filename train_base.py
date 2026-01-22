@@ -99,7 +99,7 @@ def main(args):
                          train_dataset=dataset_train,
                          eval_dataset=dataset_val,
                            data_collator=data_collator)
-    print(f"START TRAINING WITH ARGS: {args}")
+    print(f"***START TRAINING WITH ARGS: {args}")
     trainer.train()
 
     wandb.finish()
