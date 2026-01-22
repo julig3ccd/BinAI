@@ -8,14 +8,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from tqdm import tqdm
 
-#TODO replace with parsed args from argsparser
-@dataclass
-class args:
-    num_hidden_layers=2
-    num_attention_heads=4
-    batch_size=8
-    num_epochs=3
-    warm_up_epochs=2
+from utils.args_parser import Parser
 
 
 def collate_anchor_data(batch):
@@ -110,9 +103,9 @@ def flatten_candidate_data(pool):
 
    return candidate_ids, candidates, labels, metadata
 
-def build_test_dataset(pad_input, tokenizer, path="data/preprocessed_test_data/curl_unrar__pools.json"): 
+def build_test_dataset(pad_input, tokenizer, path): 
 
-    fct_pools_path = "data/preprocessed_test_data/curl__pools.json"
+    fct_pools_path = path
 
     with open(f'{fct_pools_path}', 'r') as f:
        pools = json.load(f)
@@ -130,7 +123,6 @@ def build_test_dataset(pad_input, tokenizer, path="data/preprocessed_test_data/c
 
 
     for anchor_id, pool in pools.items():
-    #TODO precompute all anchor embeddings and store them with anchor id as key
     #then batch process candidates and look up their embedding with key during measurements
    
     #for each pool move the asm to anchors asm list
@@ -161,72 +153,80 @@ def build_test_dataset(pad_input, tokenizer, path="data/preprocessed_test_data/c
                             metadata=all_metadata), anchor_ids, tokenized_anchors
 
 
-tokenizer = AutoTokenizer.from_pretrained("hustcw/clap-asm", trust_remote_code=True)
+def main(args):
+    tokenizer = AutoTokenizer.from_pretrained("hustcw/clap-asm", trust_remote_code=True)
 
-data_set_test, anch_ids, anch_in = build_test_dataset(pad_input=True, tokenizer=tokenizer)
+    data_set_test, anch_ids, anch_in = build_test_dataset(path=args.test_data, pad_input=True, tokenizer=tokenizer)
 
-anchor_data_set = ASM_Anchor_Dataset(ids=anch_ids,
-                                      input=anch_in)
+    anchor_data_set = ASM_Anchor_Dataset(ids=anch_ids,
+                                          input=anch_in)
 
 
-config = BertConfig(
-    vocab_size= tokenizer.vocab_size,
-    num_hidden_layers=args.num_hidden_layers,
-    num_attention_heads=args.num_attention_heads,
-    output_hidden_states=True,
-    max_position_embeddings=1024 #match the max instr of tokenizer 1024
-)
+    config = BertConfig(
+        vocab_size= tokenizer.vocab_size,
+        num_hidden_layers=args.num_hidden_layers,
+        num_attention_heads=args.num_heads,
+        output_hidden_states=True,
+        max_position_embeddings=1024 #match the max instr of tokenizer 1024
+    )
 
-anchor_dataloader = torch.utils.data.DataLoader(
-   anchor_data_set,
-   batch_size=32,
-   collate_fn=collate_anchor_data,
-   shuffle=False
-)
+    anchor_dataloader = torch.utils.data.DataLoader(
+       anchor_data_set,
+       batch_size=32,
+       collate_fn=collate_anchor_data,
+       shuffle=False
+    )
 
-candidate_dataloader = torch.utils.data.DataLoader(
-    data_set_test,
-    batch_size=32,
-    collate_fn=collate_candidate_data,
-    shuffle=False
-)
+    candidate_dataloader = torch.utils.data.DataLoader(
+        data_set_test,
+        batch_size=32,
+        collate_fn=collate_candidate_data,
+        shuffle=False,
+        num_workers=args.num_workers
+    )
 
-model = BertForMaskedLM(config)
+    model = BertForMaskedLM(config)
 
-model.eval()
+    model.eval()
 
-anchor_emb_dict = {}
+    anchor_emb_dict = {}
 
-with torch.no_grad():
-  for batch in tqdm(anchor_dataloader, desc="Processing anchors"):
-     ids = batch.pop('id')
-     #forward anchor batch
-     outputs = model(**batch)
-     #extract cls token embedding
-     cls_emb = outputs.hidden_states[-1][:,0,:]
+    with torch.no_grad():
+      for batch in tqdm(anchor_dataloader, desc="Processing anchors"):
+         ids = batch.pop('id')
+         #forward anchor batch
+         outputs = model(**batch)
+         #extract cls token embedding
+         cls_emb = outputs.hidden_states[-1][:,0,:]
 
-     for idx, anchor_id in enumerate(ids):
-        anchor_emb_dict[anchor_id]= cls_emb[idx]
+         for idx, anchor_id in enumerate(ids):
+            anchor_emb_dict[anchor_id]= cls_emb[idx]
 
-results = defaultdict(list)
+    results = defaultdict(list)
 
-with torch.no_grad():
-   for batch in tqdm(candidate_dataloader, desc="Processing candidates"):
-      labels = batch.pop('label')
-      anchor_ids = batch.pop('anchor_id')
+    with torch.no_grad():
+       for batch in tqdm(candidate_dataloader, desc="Processing candidates"):
+          labels = batch.pop('label')
+          anchor_ids = batch.pop('anchor_id')
 
-      outputs = model(**batch)
-      cand_cls_emb = outputs.hidden_states[-1][:,0,:]
-      #get precomputed anchor_embeddings for this batch
-      anchor_batch = torch.stack([anchor_emb_dict[aid] for aid in anchor_ids])
+          outputs = model(**batch)
+          cand_cls_emb = outputs.hidden_states[-1][:,0,:]
+          #get precomputed anchor_embeddings for this batch
+          anchor_batch = torch.stack([anchor_emb_dict[aid] for aid in anchor_ids])
 
-      #compute cos sim for this batch
-      similarities = F.cosine_similarity(cand_cls_emb, anchor_batch, dim=1)
+          #compute cos sim for this batch
+          similarities = F.cosine_similarity(cand_cls_emb, anchor_batch, dim=1)
 
-      for idx, (anchor_id, sim, label) in enumerate(zip(anchor_ids, similarities, labels)):
-         results[anchor_id].append({'sim': sim.item(), 'label': label}) 
-         #TODO see how best to track metadata or name in here (from batch directly) or through dataset look up
-json.dump(results, open("out/results.json", "w"))
+          for idx, (anchor_id, sim, label) in enumerate(zip(anchor_ids, similarities, labels)):
+             results[anchor_id].append({'sim': sim.item(), 'label': label}) 
+             #TODO see how best to track metadata or name in here (from batch directly) or through dataset look up
+    json.dump(results, open("out/results.json", "w"))
+
+
+if __name__ == "__main__":
+    parser = Parser()
+    args = parser.get_args()
+    main(args)
 
     
 

@@ -6,17 +6,26 @@ import json
 import os
 
 
-
+from utils.args_parser import Parser
 from utils.pre_proccess_util import PreProcessor
 
-#TODO replace with parsed args from argsparser
-@dataclass
-class args:
-    num_hidden_layers=2
-    num_attention_heads=4
-    batch_size=8
-    num_epochs=3
-    warm_up_epochs=2
+def read_data(path):
+    projects = os.listdir(path)
+    print(f'***PROJECTS IN DATA DIRECTORY: {projects}')
+
+    asm_list = []
+    for proj in projects:
+       with open(f'{path}/{proj}') as fp:
+         data = json.load(fp)
+       proj_insn = [entry["func_instr"] for file in data for entry in file["asm"]]
+       asm_list+=proj_insn  
+    return asm_list   
+
+def build_dataset(path, tokenizer):
+    asm = read_data(path)
+    tokens = tokenizer(asm, padding=True,return_tensors="pt")
+    return ASM_Train_Dataset(tokens)
+
 
 class ASM_Train_Dataset(torch.utils.data.Dataset):
     def __init__(self, encodings):
@@ -32,69 +41,74 @@ class ASM_Train_Dataset(torch.utils.data.Dataset):
         }
 
 
-tokenizer = AutoTokenizer.from_pretrained("hustcw/clap-asm", trust_remote_code=True)
-trainset_path = "data/preprocessed_test_data"
 
-projects = os.listdir(trainset_path)
-print(f'BUILDING DATASET WITH PROJECTS: {projects}')
+def main(args):
+    
+    tokenizer = AutoTokenizer.from_pretrained("hustcw/clap-asm", trust_remote_code=True)
 
-asm_list = []
-for proj in projects:
-   with open(f'{trainset_path}/{proj}') as fp:
-       data = json.load(fp)
-   proj_insn = [entry["func_instr"] for file in data for entry in file["asm"]]
-   asm_list+=proj_insn  
+    dataset_train = build_dataset(args.train_data, tokenizer)
+    dataset_val = build_dataset(args.val_data, tokenizer)
 
-print("INSN BEFORE TOKENIZEATION: \n" , asm_list[:5])
+    data_collator = DataCollatorForLanguageModeling(
+        tokenizer=tokenizer,
+        mlm=True,
+        mlm_probability=0.15
+    )
+
+    config = BertConfig(
+        vocab_size= tokenizer.vocab_size,
+        num_hidden_layers=args.num_hidden_layers,
+        num_attention_heads=args.num_heads,
+        max_position_embeddings=1024 #match the max instr of tokenizer 1024
+    )
+
+    if torch.cuda.is_available():
+        deviceStr= "cuda"
+        print("GPU found!")
+    else:    
+        deviceStr= "cpu"
+        print("No GPU found, running on CPU!") 
+    device = torch.device(deviceStr)
 
 
+    if args.checkpoint == None:
+        print(f"***INIT SCRATCH MODEL")
+        model = BertForMaskedLM(config)
+    else:
+        print(f"***LOAD MODEL FROM PRETRAINED CHECKPOINT: {args.checkpoint}")
+        BertForMaskedLM.from_pretrained(args.checkpoint)
 
-#asm_list = [entry["func_instr"] for entry in data["asm"]]
+    model.to(device)    
 
-#move input tensors to CUDA device once training on GPU
-asm_input = tokenizer(asm_list, padding=True,return_tensors="pt") 
+    wandb.init(
+        project="BinAI-MLM",
+        )
 
-dataset = ASM_Train_Dataset(asm_input)
+    training_args = TrainingArguments(output_dir="output",
+                                      per_device_train_batch_size=args.batch_size,
+                                    num_train_epochs=args.epochs,
+                                     logging_steps=10,
+                                     eval_strategy="epoch",
+                                    report_to="wandb",         
+                                    run_name="bert-mlm-test",
+                                    dataloader_num_workers=args.num_workers,
+                                     fp16=True if deviceStr != "cpu" else False)
 
-data_collator = DataCollatorForLanguageModeling(
-    tokenizer=tokenizer,
-    mlm=True,
-    mlm_probability=0.15
-)
+    trainer = Trainer(model=model,
+                       args=training_args,
+                         train_dataset=dataset_train,
+                         eval_dataset=dataset_val,
+                           data_collator=data_collator)
+    print(f"START TRAINING WITH ARGS: {args}")
+    trainer.train()
 
-config = BertConfig(
-    vocab_size= tokenizer.vocab_size,
-    num_hidden_layers=args.num_hidden_layers,
-    num_attention_heads=args.num_attention_heads,
-    max_position_embeddings=1024 #match the max instr of tokenizer 1024
-)
+    wandb.finish()
 
-if torch.cuda.is_available():
-    deviceStr= "cuda"
-    print("GPU found!")
-else:    
-    deviceStr= "cpu"
-    print("No GPU found, running on CPU!") 
-device = torch.device(deviceStr)
 
-model = BertForMaskedLM(config).to(device)
-
-wandb.init(
-    project="BinAI-MLM",
-    name="bert-mlm-test")
-
-training_args = TrainingArguments(output_dir="output",
-                                  per_device_train_batch_size=args.batch_size,
-                                num_train_epochs=args.num_epochs,
-                                 logging_steps=10,
-                                report_to="wandb",         
-                                run_name="bert-mlm-test",
-                                 fp16=True )
-
-trainer = Trainer(model=model, args=training_args, train_dataset=dataset, data_collator=data_collator)
-trainer.train()
-
-wandb.finish()
+if __name__ == "__main__":
+    parser = Parser()
+    args = parser.get_args()
+    main(args)
 
 
 
