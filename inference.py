@@ -103,7 +103,7 @@ def flatten_candidate_data(pool):
        candidate_ids.append(neg_sample["id"])
        candidates.append(neg_sample["asm"])
        labels.append(False)
-       metadata.append(sample["metadata"])
+       metadata.append(neg_sample["metadata"])
 
 
 
@@ -134,9 +134,14 @@ def build_test_dataset(pad_input, tokenizer, path):
     #for each pool move the asm to anchors asm list
     #track their id in parrallel
      anchor_ids.append(anchor_id)
-     anchors_asm.append(pool["anchor"]["asm"])
+     anchor_asm = pool["anchor"]["asm"]
+     anchors_asm.append(anchor_asm)
 
      candidate_ids,candidates, labels, metadata = flatten_candidate_data(pool)
+     
+     # Debug: Check if anchor is in its own candidate pool
+     if anchor_asm in candidates:
+         print(f"WARNING: Anchor {anchor_id} found in its own candidate pool!")
      
      anchor_ids_for_candidates = [anchor_id] * len(candidates)
      all_anchor_ids.extend(anchor_ids_for_candidates)
