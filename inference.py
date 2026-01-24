@@ -239,7 +239,7 @@ def compute_cosine_similarity(args):
         num_workers=args.num_workers
     )
 
-    if args.checkpoint=="test":
+    if args.checkpoint=="scratch":
        config = BertConfig(
         vocab_size= tokenizer.vocab_size,
         num_hidden_layers=args.num_hidden_layers,
