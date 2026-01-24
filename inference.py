@@ -176,10 +176,9 @@ def sort_results(cos_sim_pools):
 
 def top_k_prec(pool_sorted, K):
    '''return the percentage of true positives wihtin the top-K predictions of the pool'''
-   pool_items = pool_sorted.items()
    tp_count=0
    for k in range(K):
-      if pool_items[k]["label"] == True:
+      if pool_sorted[k]["label"] == True:
          tp_count+=1
    
    top_k = tp_count/K
