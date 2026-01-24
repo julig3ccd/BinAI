@@ -314,7 +314,7 @@ def compute_cosine_similarity(args):
                                         }) 
     sorted_results, gt_indeces = sort_results(results)
 
-    result_name = f"results_{datetime.now()}.json"
+    result_name = f"results_{datetime.strftime()}.json"
     json.dump({"results": sorted_results,
                 "gts": gt_indeces}, open(f"out/{result_name}", "w"))
     return result_name
