@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from collections import defaultdict
 from dataclasses import dataclass
 from tqdm import tqdm
-import datetime
+from datetime import datetime
 
 from utils.args_parser import Parser
 
