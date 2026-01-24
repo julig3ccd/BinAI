@@ -177,6 +177,7 @@ cython_debug/
 
 # Project specific data
 data/
+out/
 
 # Training outputs
 wandb/
