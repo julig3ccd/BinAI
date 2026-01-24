@@ -172,7 +172,7 @@ def sort_results(cos_sim_pools):
          if func["label"]==True:
             gt_idcs.append(idx) 
       gt_idcs_global[id]=gt_idcs
-   return pred_sorted, gt_idcs
+   return pred_sorted, gt_idcs_global
 
 def top_k_prec(pool_sorted, K):
    '''return the percentage of true positives wihtin the top-K predictions of the pool'''
