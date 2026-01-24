@@ -320,7 +320,7 @@ def compute_cosine_similarity(args):
     return result_name
 
 def take_measurements(file):
-   with open(f"out/{file}", "w") as f:
+   with open(f"out/{file}", "r") as f:
       res = json.load(f)
 
    #this currently dumps a file   
