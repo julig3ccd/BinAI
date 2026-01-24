@@ -239,7 +239,7 @@ def compute_cosine_similarity(args):
         num_workers=args.num_workers
     )
 
-    if args.checkpoint=="scratch":
+    if args.checkpoint=="test":
        config = BertConfig(
         vocab_size= tokenizer.vocab_size,
         num_hidden_layers=args.num_hidden_layers,
@@ -258,6 +258,17 @@ def compute_cosine_similarity(args):
     model.eval()
     #output hidden states so we can extract the CLS token which contains information about the whole input sequence
     model.config.output_hidden_states=True
+
+    if torch.cuda.is_available():
+        deviceStr= "cuda"
+        print("GPU found!")
+    else:    
+        deviceStr= "cpu"
+        print("No GPU found, running on CPU!") 
+    device = torch.device(deviceStr)   
+    
+    model.to(device)    
+
 
     anchor_emb_dict = {}
     #precompute all embeddings for our anchor functions and map them to their id
@@ -316,8 +327,8 @@ def take_measurements(file):
    print(f"MRR : {mrr}")   
 
 
-def main(args):
-   result_filename =compute_cosine_similarity(args)
+def main():
+   result_filename =compute_cosine_similarity()
    take_measurements(file=result_filename)
 
 
