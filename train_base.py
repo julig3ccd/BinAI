@@ -91,6 +91,7 @@ def main(args):
                                      eval_strategy="epoch",
                                     report_to="wandb",         
                                     run_name="bert-mlm-test",
+                                    save_strategy="epoch",
                                     dataloader_num_workers=args.num_workers,
                                      fp16=True if deviceStr != "cpu" else False)
 
