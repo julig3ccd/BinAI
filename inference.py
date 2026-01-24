@@ -275,6 +275,8 @@ def compute_cosine_similarity(args):
     with torch.no_grad():
       for batch in tqdm(anchor_dataloader, desc="Processing anchors"):
          ids = batch.pop('id')
+         #move batch to device
+         batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
          #forward anchor batch
          outputs = model(**batch)
          #extract cls token embedding of anchors
@@ -293,11 +295,13 @@ def compute_cosine_similarity(args):
           anchor_ids = batch.pop('anchor_id')
           metadata = batch.pop('metadata')
           
+          #move batch to device
+          batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
           #compute embeddings of the cls tokens for this batch
           outputs = model(**batch)
           cand_cls_emb = outputs.hidden_states[-1][:,0,:]
           #get precomputed anchor_embeddings for this batch
-          anchor_batch = torch.stack([anchor_emb_dict[aid] for aid in anchor_ids])
+          anchor_batch = torch.stack([anchor_emb_dict[aid] for aid in anchor_ids]).to(device)
 
           #compute cos sim between candidate & anchor CLS embeddings of this batch
           similarities = F.cosine_similarity(cand_cls_emb, anchor_batch, dim=1)
