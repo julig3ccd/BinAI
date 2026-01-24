@@ -316,8 +316,8 @@ def take_measurements(file):
    print(f"MRR : {mrr}")   
 
 
-def main():
-   result_filename =compute_cosine_similarity()
+def main(args):
+   result_filename =compute_cosine_similarity(args)
    take_measurements(file=result_filename)
 
 
