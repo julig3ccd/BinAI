@@ -13,7 +13,7 @@ class Parser:
         self.parser.add_argument("--num_workers", type=int, default=4)
         self.parser.add_argument("--num_hidden_layers", type=int, default=4)
         self.parser.add_argument("--checkpoint", type=str, default=None)
-        self.parser.add_argument("--out_dir", type=str,default="output" )
+        self.parser.add_argument("--out_dir", type=str,default="out" )
         self.parser.add_argument("--train_data", type=str, default="data/preprocessed_test_data_train")
         self.parser.add_argument("--val_data", type=str, default="data/preprocessed_test_data_val")
         self.parser.add_argument("--test_data", type=str, default="data/preprocessed_test_data/curl__pools.json")
