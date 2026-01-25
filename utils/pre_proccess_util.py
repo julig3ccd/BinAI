@@ -4,7 +4,9 @@ import json
 import angr
 import os
 import time
+import numpy as np
 from collections import defaultdict
+from build_fct_pools import Pool_Util
 
 
 
@@ -145,6 +147,30 @@ class PreProcessor():
                 json.dump(data, open(output_path, 'w'))
             return data
 
+
+    def deduplicate_asm(self, variants):
+       
+        def norm(asm_dict):
+            # need to clean the insns bc a simple str(insns_dict) comparison does not match them properly
+            cleaned = {k: " ".join(v.split()) for k, v in asm_dict.items()}
+            return json.dumps(cleaned, sort_keys=True)
+
+        var_asm = [norm(var["asm"]) for var in variants]
+        #print("\n".join(var_asm), flush=True)
+        unique = []
+        seen = set()
+        for v, sig in zip(variants, var_asm):
+            if sig in seen:
+                #print("DUP: \n", sig )
+                continue
+            seen.add(sig)
+            unique.append(v)
+        return unique    
+    
+
+    
+
+
     def process_binary_dataset(self, dataset_path="../data/Dataset-1-X64-test", output_path = "../data/PreProcessed_Data"):
         
         projects = [p for p in os.listdir(dataset_path) 
@@ -169,11 +195,13 @@ class PreProcessor():
                 start_filter = time.time()
                 #print(f'sim fct_dict_before_variant_filter {len(self.similar_fct_dict)}')
                 #only keep fcts that have at least one similar fct
+                #remove variants that share exact assembly insns but differ in metadata, bc the would spoil the measurements
+                #--> it is obvious that exact same insns lead to almost completely same out embedding, this would be not a useful result, --> nothing to learn from that
                 self.similar_fct_dict = {
-                                         func_name: variants 
+                                         func_name: self.deduplicate_asm(variants) 
                                          for func_name, variants in self.similar_fct_dict.items() 
                                          if len(variants) >= 2
-                                         }
+                                         } 
                 #print(f'sim fct_dict_after_variant_filter {len(self.similar_fct_dict)}')
 
                 end_filter = time.time()
@@ -185,10 +213,14 @@ class PreProcessor():
             json.dump(proj_data, open(f'{output_path}/{proj}.json', 'w'))
 
 def main():
-    processor = PreProcessor(detect_similar_fct=False)
-    in_path= "../data/Dataset-1-X64-train"
-    out_path= "../preprocessed_data/train"
+    processor = PreProcessor(detect_similar_fct=True)
+    in_path= "../data/Dataset-1-X64-test"
+    out_path= "../preprocessed_data/test_dedup"
     processor.process_binary_dataset(dataset_path=in_path, output_path=out_path)
+    pooler = Pool_Util()
+    pooler.create_pools(preprocessed_data_dir="../preprocessed_data/test_dedup",min_variants=8, num_samples=200)
+
+    
 
 if __name__ == "__main__":
     main()
