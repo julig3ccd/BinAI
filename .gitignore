@@ -178,6 +178,9 @@ cython_debug/
 # Project specific data
 data/
 out/
+preprocessed_data/
+final_preprocessed/
+notebooks/
 
 # Training outputs
 wandb/

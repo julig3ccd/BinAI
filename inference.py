@@ -198,7 +198,7 @@ def measure_top_K(pred_sorted, K=10, out_dict="out"):
       top_Ks[id]=top_k   
    #TODO see if we want to avg over all pools (look at formula in slides)to get a single value
    json.dump(top_Ks, open(f'{out_dict}/top_{K}_measures.json','w'))
-      
+   return top_Ks.values/len(pred_sorted)
 
 def measure_MRR(gt_idcs):
    #per_pool_rr = {}
@@ -318,26 +318,36 @@ def compute_cosine_similarity(args):
                                         }) 
     sorted_results, gt_indeces = sort_results(results)
 
-    result_name = f"results_{datetime.now()}.json"
-    json.dump({"results": sorted_results,
-                "gts": gt_indeces}, open(f"out/{result_name}", "w"))
+    result_name = f"{datetime.now()}_cos_results.json"
+    json.dump({"cos_results": sorted_results,
+                "gt_idcs": gt_indeces}, open(f"{args.out}/{result_name}", "w"))
     return result_name
 
 def take_measurements(file):
-   with open(f"out/{file}", "r") as f:
+   with open(f"{args.out}/{file}", "r") as f:
       res = json.load(f)
 
    #this currently dumps a file   
-   measure_top_K(res["results"], K=10)
+   top_K=measure_top_K(res["cos_results"], K=10)
    #this only returns a single numeric value
-   mrr = measure_MRR(res["gts"])
+   mrr = measure_MRR(res["gt_idcs"])
 
-   print(f"MRR : {mrr}")   
+   print(f"MRR : {mrr}")
+   print(f"topK: {top_K}")
+   return mrr, top_K   
 
 
 def main(args):
    result_filename =compute_cosine_similarity(args)
-   take_measurements(file=result_filename)
+   mrr, top_K = take_measurements(file=result_filename)
+   json.dump({"MRR": {mrr}, "TOPK":{top_K}},
+              open(f"{args.out}/{datetime.now()}_measurements.json", "w"))
+   
+def test_measurements():
+   result_filename = "results_test.json"
+   mrr, top_K = take_measurements(file=result_filename)
+   json.dump({"MRR": {mrr}, "TOPK":{top_K}},
+              open(f"{args.out}/{datetime.now()}_measurements.json", "w"))
 
 
 
