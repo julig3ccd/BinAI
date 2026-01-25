@@ -8,8 +8,9 @@ from collections import defaultdict
 from dataclasses import dataclass
 from tqdm import tqdm
 from datetime import datetime
-
+from sklearn import metrics
 from utils.args_parser import Parser
+from statistics import mean
 
 
 def collate_anchor_data(batch):
@@ -198,7 +199,7 @@ def measure_top_K(pred_sorted, K=10, out_dict="out"):
       top_Ks[id]=top_k   
    #TODO see if we want to avg over all pools (look at formula in slides)to get a single value
    json.dump(top_Ks, open(f'{out_dict}/top_{K}_measures.json','w'))
-   return top_Ks.values/len(pred_sorted)
+   return mean(top_Ks.values())
 
 def measure_MRR(gt_idcs):
    #per_pool_rr = {}
@@ -218,7 +219,14 @@ def measure_MRR(gt_idcs):
 
    #TODO ensure MRR is correct
 
-         
+def measure_nDCG(pred_sorted):
+   labels = []
+   scores = []
+   for pool in pred_sorted.values():
+      labels.append([ candidate["label"] for candidate in pool ])
+      scores.append([ candidate["sim"] for candidate in pool ])
+   return metrics.ndcg_score(labels,scores) 
+          
 
 def compute_cosine_similarity(args):
     tokenizer = AutoTokenizer.from_pretrained("hustcw/clap-asm", trust_remote_code=True)
@@ -320,11 +328,11 @@ def compute_cosine_similarity(args):
 
     result_name = f"{datetime.now()}_cos_results.json"
     json.dump({"cos_results": sorted_results,
-                "gt_idcs": gt_indeces}, open(f"{args.out}/{result_name}", "w"))
+                "gt_idcs": gt_indeces}, open(f"{args.out_dir}/{result_name}", "w"))
     return result_name
 
-def take_measurements(file):
-   with open(f"{args.out}/{file}", "r") as f:
+def take_measurements(args, file):
+   with open(f"{args.out_dir}/{file}", "r") as f:
       res = json.load(f)
 
    #this currently dumps a file   
@@ -332,22 +340,31 @@ def take_measurements(file):
    #this only returns a single numeric value
    mrr = measure_MRR(res["gt_idcs"])
 
+   nDCG = measure_nDCG(res["cos_results"])
+
    print(f"MRR : {mrr}")
    print(f"topK: {top_K}")
-   return mrr, top_K   
+   print(f"nDCG: {nDCG}")
+   return mrr, top_K , nDCG 
 
 
 def main(args):
    result_filename =compute_cosine_similarity(args)
-   mrr, top_K = take_measurements(file=result_filename)
-   json.dump({"MRR": {mrr}, "TOPK":{top_K}},
-              open(f"{args.out}/{datetime.now()}_measurements.json", "w"))
+   mrr, top_K, nDCG = take_measurements(args=args, file=result_filename)
+   json.dump({"MRR": {mrr}, "TOPK":{top_K}, "nDCG: ": {nDCG}},
+              open(f"{args.out_dir}/{datetime.now()}_measurements.json", "w"))
    
-def test_measurements():
+def test_measurements(args):
    result_filename = "results_test.json"
-   mrr, top_K = take_measurements(file=result_filename)
-   json.dump({"MRR": {mrr}, "TOPK":{top_K}},
-              open(f"{args.out}/{datetime.now()}_measurements.json", "w"))
+   mrr, top_K, nDCG = take_measurements(args=args, file=result_filename)
+   with open(f"{args.out_dir}/{result_filename}", "r") as f:
+      res = json.load(f)
+      
+   nDCG = measure_nDCG(res["cos_results"])
+   
+   print("ndcg: ", nDCG)
+   json.dump({"MRR": {mrr}, "TOPK":{top_K}, "ndcg: ": {nDCG}},
+             open(f"{args.out_dir}/{datetime.now()}_measurements.json", "w"))
 
 
 
