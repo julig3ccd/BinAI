@@ -7,7 +7,6 @@ import os
 
 
 from utils.args_parser import Parser
-from utils.pre_proccess_util import PreProcessor
 
 def read_data(path):
     projects = os.listdir(path)
@@ -18,13 +17,17 @@ def read_data(path):
        with open(f'{path}/{proj}') as fp:
          data = json.load(fp)
        proj_insn = [entry["func_instr"] for file in data for entry in file["asm"]]
-       asm_list+=proj_insn  
+       asm_list.append(proj_insn)  
     return asm_list   
 
 def build_dataset(path, tokenizer):
     asm = read_data(path)
-    tokens = tokenizer(asm, padding=True,return_tensors="pt")
-    return ASM_Train_Dataset(tokens)
+    datasets = []
+    for proj in asm:
+        tokens = tokenizer(proj, padding=True,return_tensors="pt")
+        datasets.append(ASM_Train_Dataset(tokens))
+    concat = torch.utils.data.ConcatDataset(datasets)
+    return concat
 
 
 class ASM_Train_Dataset(torch.utils.data.Dataset):
