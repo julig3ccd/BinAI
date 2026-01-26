@@ -9,7 +9,7 @@ import os
 from utils.args_parser import Parser
 
 def read_data(path):
-    projects = os.listdir(path)
+    projects = sorted(os.listdir(path))
     print(f'***PROJECTS IN DATA DIRECTORY: {projects}')
 
     asm_list = []
@@ -22,11 +22,17 @@ def read_data(path):
 
 def build_dataset(path, tokenizer):
     asm = read_data(path)
-    datasets = []
+    concat = None
     for proj in asm:
+        print("before token")
         tokens = tokenizer(proj, padding=True,return_tensors="pt")
-        datasets.append(ASM_Train_Dataset(tokens))
-    concat = torch.utils.data.ConcatDataset(datasets)
+        dataset = ASM_Train_Dataset(tokens)
+        print("before concat")
+        if concat is None:
+            concat = dataset
+        else:
+            concat = torch.utils.data.ConcatDataset(concat.datasets if isinstance(concat, torch.utils.data.ConcatDataset) else [concat]+ [dataset])
+        print("after concat")
     return concat
 
 
