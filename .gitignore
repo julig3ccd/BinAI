@@ -190,3 +190,6 @@ output/
 .DS_Store
 scripts/copy_x64_files.py
 sample_data/curl.json
+
+#VSCode
+.vscode

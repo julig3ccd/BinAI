@@ -31,7 +31,8 @@ def build_dataset(path, tokenizer):
         if concat is None:
             concat = dataset
         else:
-            concat = torch.utils.data.ConcatDataset(concat.datasets if isinstance(concat, torch.utils.data.ConcatDataset) else [concat]+ [dataset])
+            prev = concat.datasets if isinstance(concat, torch.utils.data.ConcatDataset) else [concat]
+            concat = torch.utils.data.ConcatDataset(prev + [dataset])
         print("after concat")
     return concat
 
