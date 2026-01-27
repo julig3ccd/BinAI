@@ -238,14 +238,14 @@ def compute_cosine_similarity(args):
 
     anchor_dataloader = torch.utils.data.DataLoader(
        anchor_data_set,
-       batch_size=32,
+       batch_size=args.batch_size,
        collate_fn=collate_anchor_data,
        shuffle=False
     )
 
     candidate_dataloader = torch.utils.data.DataLoader(
         data_set_test,
-        batch_size=32,
+        batch_size=args.batch_size,
         collate_fn=collate_candidate_data,
         shuffle=False,
         num_workers=args.num_workers
