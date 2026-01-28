@@ -17,6 +17,7 @@ class Parser:
         self.parser.add_argument("--train_data", type=str, default="data/preprocessed_test_data_train")
         self.parser.add_argument("--val_data", type=str, default="data/preprocessed_test_data_val")
         self.parser.add_argument("--test_data", type=str, default="data/preprocessed_test_data/curl__pools.json")
+        self.parser.add_argument("--create_opcode_ids", type=bool, default=False)
 
 
     def get_args(self):

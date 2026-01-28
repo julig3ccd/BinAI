@@ -5,23 +5,35 @@ from dataclasses import dataclass
 import json
 import os
 
-
+from utils.masking import get_token_ids_of_opcodes_to_mask
 from utils.args_parser import Parser
 
-def read_data(path):
+opcode_tensor = None
+
+
+def read_data(path, tokenizer, dataset):
     projects = sorted(os.listdir(path))
     print(f'***PROJECTS IN DATA DIRECTORY: {projects}')
-
+    ocpode_tensor = torch.empty(dtype=torch.long)
     asm_list = []
     for proj in projects:
        with open(f'{path}/{proj}') as fp:
          data = json.load(fp)
        proj_insn = [entry["func_instr"] for file in data for entry in file["asm"]]
        asm_list.append(proj_insn)  
-    return asm_list   
+       #TODO use masking arg from argsparser
+       if args.create_opcode_ids==True:
+          proj_opcode_ids_tensor = get_token_ids_of_opcodes_to_mask(proj_insn,tokenizer=tokenizer)
+          opcode_tensor = torch.cat(ocpode_tensor, proj_opcode_ids_tensor)
+          opcode_tensor = torch.unique(opcode_tensor)
+    if args.create_opcode_ids==True:
+        torch.save(opcode_tensor, f'{args.out_dir}/{dataset}_opcode_tensor.pt')   
 
-def build_dataset(path, tokenizer):
-    asm = read_data(path)
+    return asm_list
+    
+
+def build_dataset(path, tokenizer, dataset_type):
+    asm = read_data(path, tokenizer, dataset_type)
     concat = None
     for proj in asm:
         print("before token")
@@ -31,8 +43,7 @@ def build_dataset(path, tokenizer):
         if concat is None:
             concat = dataset
         else:
-            prev = concat.datasets if isinstance(concat, torch.utils.data.ConcatDataset) else [concat]
-            concat = torch.utils.data.ConcatDataset(prev + [dataset])
+            concat = torch.utils.data.ConcatDataset(concat.datasets if isinstance(concat, torch.utils.data.ConcatDataset) else [concat]+ [dataset])
         print("after concat")
     return concat
 
@@ -56,8 +67,13 @@ def main(args):
     
     tokenizer = AutoTokenizer.from_pretrained("hustcw/clap-asm", trust_remote_code=True)
 
-    dataset_train = build_dataset(args.train_data, tokenizer)
-    dataset_val = build_dataset(args.val_data, tokenizer)
+    dataset_train = build_dataset(args.train_data, tokenizer, dataset_type="train")
+    dataset_val = build_dataset(args.val_data, tokenizer, dataset_type="val")
+
+    #TODO load opcode tensor that is available after build_dataset has finished
+    global opcode_tensor
+    opcode_tensor = torch.load(f'{args.out_dir}/train_opcode_tensor.pt')
+
 
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokenizer,

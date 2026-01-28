@@ -1,5 +1,7 @@
 import json
 import random
+import torch
+import numpy as np
 
 def Mask_OpCodes(probability, asm_json):
     with open(asm_json, 'r') as f:
@@ -13,6 +15,26 @@ def Mask_OpCodes(probability, asm_json):
                     function['func_instr'][key] = ' '.join(instList)
 
     return asm
+
+
+def get_token_ids_of_opcodes_to_mask(file_asm,
+                                      tokenizer):
+ 
+    opcode_list = []
+ 
+    for program in file_asm:
+        for insn in program.values():
+                instList = insn.split()
+                opcode = instList[0]
+                tokenized_opcode= tokenizer(opcode)
+                #should be only one token id so we can just flatten the array
+                #by using the first element
+                opcode_token_id = tokenized_opcode['input_ids'][0]
+                opcode_list.append(opcode_token_id)
+                    
+    opcode_tensor= torch.tensor(opcode_list, dtype=torch.long)      
+    return opcode_tensor                
+
 
 def test():
     masked = Mask_OpCodes(0.3,'sample_data/curl.json')
