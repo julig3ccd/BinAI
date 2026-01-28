@@ -197,27 +197,23 @@ def measure_top_K(pred_sorted, K=10, out_dict="out"):
    for id, pool in pred_sorted.items():
       top_k = top_k_prec(pool, K)
       top_Ks[id]=top_k   
-   #TODO see if we want to avg over all pools (look at formula in slides)to get a single value
-   json.dump(top_Ks, open(f'{out_dict}/top_{K}_measures.json','w'))
+
+   json.dump(top_Ks, open(f'{out_dict}/{datetime.now()}_top_{K}_measures.json','w'))
    return mean(top_Ks.values())
 
 def measure_MRR(gt_idcs):
-   #per_pool_rr = {}
-   rr_sum= 0.0
-   n = 0
+
+   mrr=[]
    for id, p_idcs in gt_idcs.items():
-      first_tp=min(p_idcs)+1
-      rr = 1.0/first_tp
-      #per_pool_rr[id]=rr
-      #add up rr for each tp sample
-      rr_sum += rr
-      #increase count of samples
-      n+= 1
-
-   mrr = rr_sum / n
-   return mrr 
-
-   #TODO ensure MRR is correct
+      rr_sum= 0.0
+      #first_tp=min(p_idcs)+1
+      for idx in p_idcs:
+         rr = 1.0 / idx+1
+         #add up rr for each tp sample
+         rr_sum += rr
+      mrr.append(rr_sum/len(p_idcs))
+      
+   return mean(mrr)
 
 def measure_nDCG(pred_sorted):
    labels = []
@@ -351,7 +347,9 @@ def take_measurements(args, file):
 def main(args):
    result_filename =compute_cosine_similarity(args)
    mrr, top_K, nDCG = take_measurements(args=args, file=result_filename)
-   json.dump({"MRR": {mrr}, "TOPK":{top_K}, "nDCG: ": {nDCG}},
+   json.dump({"MRR": mrr,
+               "TOPK": top_K,
+                 "nDCG: ": nDCG},
               open(f"{args.out_dir}/{datetime.now()}_measurements.json", "w"))
    
 def test_measurements(args):
