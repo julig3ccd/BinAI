@@ -208,7 +208,7 @@ def measure_MRR(gt_idcs):
       rr_sum= 0.0
       #first_tp=min(p_idcs)+1
       for idx in p_idcs:
-         rr = 1.0 / idx+1
+         rr = 1.0 / (idx+1)
          #add up rr for each tp sample
          rr_sum += rr
       mrr.append(rr_sum/len(p_idcs))
