@@ -36,6 +36,10 @@ def mask_tokens_mod(
             else torch.tensor(special_tokens_mask, dtype=torch.bool)
         )
 
+        opcode_mask = torch.isin(inputs, opcode_tensor)
+        no_mask_mask = no_mask_mask & ~opcode_mask
+
+
         probability_matrix.masked_fill_(no_mask_mask, value=0.0)
         masked_indices = torch.bernoulli(probability_matrix, generator=self.generator).bool()
 
@@ -137,8 +141,9 @@ def main(args):
     dataset_train = build_dataset(args.train_data, tokenizer, dataset_type="train")
     dataset_val = build_dataset(args.val_data, tokenizer, dataset_type="val")
 
-    #TODO load opcode tensor that is available after build_dataset has finished
-    opcode_tensor = torch.load(f'{args.out_dir}/train_opcode_tensor.pt')
+    if args.masking == "opcode":
+        global opcode_tensor
+        opcode_tensor = torch.load(f'{args.out_dir}/train_opcode_tensor.pt')
 
 
     data_collator = DataCollatorForLanguageModeling(
