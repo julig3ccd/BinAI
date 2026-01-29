@@ -1,5 +1,6 @@
 import torch
 from transformers import BertForMaskedLM, BertConfig, AutoTokenizer, DataCollatorForLanguageModeling, Trainer, TrainingArguments
+from typing import Any, Optional
 import wandb
 from dataclasses import dataclass
 import json
@@ -11,11 +12,74 @@ from utils.args_parser import Parser
 opcode_tensor = None
 
 
+
+def mask_tokens_mod(
+        self, inputs: Any, special_tokens_mask: Optional[Any] = None, offset_mapping: Optional[Any] = None
+    ) -> tuple[Any, Any]:
+        """
+        Prepare masked tokens inputs/labels for masked language modeling.
+        """
+        import torch
+
+        labels = inputs.clone()
+        # We sample a few tokens in each sequence for MLM training (with probability `self.mlm_probability`)
+        probability_matrix = torch.full(labels.shape, self.mlm_probability)
+        if special_tokens_mask is None:
+            special_tokens_mask = [
+                self.tokenizer.get_special_tokens_mask(val, already_has_special_tokens=True) for val in labels.tolist()
+            ]
+
+
+        no_mask_mask = (
+            special_tokens_mask.bool()
+            if isinstance(special_tokens_mask, torch.Tensor)
+            else torch.tensor(special_tokens_mask, dtype=torch.bool)
+        )
+
+        opcode_mask = torch.isin(inputs, opcode_tensor)
+        no_mask_mask = no_mask_mask & ~opcode_mask
+
+
+        probability_matrix.masked_fill_(no_mask_mask, value=0.0)
+        masked_indices = torch.bernoulli(probability_matrix, generator=self.generator).bool()
+
+
+        labels[~masked_indices] = -100  # We only compute loss on masked tokens
+
+        # mask_replace_prob% of the time, we replace masked input tokens with tokenizer.mask_token ([MASK])
+        indices_replaced = (
+            torch.bernoulli(torch.full(labels.shape, self.mask_replace_prob), generator=self.generator).bool()
+            & masked_indices
+        )
+        inputs[indices_replaced] = self.tokenizer.convert_tokens_to_ids(self.tokenizer.mask_token)
+
+        if self.mask_replace_prob == 1 or self.random_replace_prob == 0:
+            return inputs, labels
+
+        remaining_prob = 1 - self.mask_replace_prob
+        # scaling the random_replace_prob to the remaining probability for example if
+        # mask_replace_prob = 0.8 and random_replace_prob = 0.1,
+        # then random_replace_prob_scaled = 0.1 / 0.2 = 0.5
+        random_replace_prob_scaled = self.random_replace_prob / remaining_prob
+
+        # random_replace_prob% of the time, we replace masked input tokens with random word
+        indices_random = (
+            torch.bernoulli(torch.full(labels.shape, random_replace_prob_scaled), generator=self.generator).bool()
+            & masked_indices
+            & ~indices_replaced
+        )
+        random_words = torch.randint(len(self.tokenizer), labels.shape, dtype=torch.long, generator=self.generator)
+        inputs[indices_random] = random_words[indices_random]
+
+        # The rest of the time ((1-random_replace_prob-mask_replace_prob)% of the time) we keep the masked input tokens unchanged
+        return inputs, labels
+
+
 def read_data(path, tokenizer, dataset):
     projects = sorted(os.listdir(path))
     print(f'***PROJECTS IN DATA DIRECTORY: {projects}')
-    ocpode_tensor = torch.empty(dtype=torch.long)
     asm_list = []
+    tensor_list = []
     for proj in projects:
        with open(f'{path}/{proj}') as fp:
          data = json.load(fp)
@@ -23,10 +87,12 @@ def read_data(path, tokenizer, dataset):
        asm_list.append(proj_insn)  
        #TODO use masking arg from argsparser
        if args.create_opcode_ids==True:
-          proj_opcode_ids_tensor = get_token_ids_of_opcodes_to_mask(proj_insn,tokenizer=tokenizer)
-          opcode_tensor = torch.cat(ocpode_tensor, proj_opcode_ids_tensor)
-          opcode_tensor = torch.unique(opcode_tensor)
+          tensor_list.append(get_token_ids_of_opcodes_to_mask(proj_insn,tokenizer=tokenizer))
+
     if args.create_opcode_ids==True:
+        global opcode_tensor        
+        opcode_tensor = torch.cat(tensor_list, dim = 0)
+        opcode_tensor = torch.unique(opcode_tensor)
         torch.save(opcode_tensor, f'{args.out_dir}/{dataset}_opcode_tensor.pt')   
 
     return asm_list
@@ -43,7 +109,8 @@ def build_dataset(path, tokenizer, dataset_type):
         if concat is None:
             concat = dataset
         else:
-            concat = torch.utils.data.ConcatDataset(concat.datasets if isinstance(concat, torch.utils.data.ConcatDataset) else [concat]+ [dataset])
+            prev = concat.datasets if isinstance(concat, torch.utils.data.ConcatDataset) else [concat]
+            concat = torch.utils.data.ConcatDataset(prev + [dataset])
         print("after concat")
     return concat
 
@@ -64,15 +131,19 @@ class ASM_Train_Dataset(torch.utils.data.Dataset):
 
 
 def main(args):
+
+    if args.masking == "opcode":
+        DataCollatorForLanguageModeling.torch_mask_tokens = mask_tokens_mod
+
     
     tokenizer = AutoTokenizer.from_pretrained("hustcw/clap-asm", trust_remote_code=True)
 
     dataset_train = build_dataset(args.train_data, tokenizer, dataset_type="train")
     dataset_val = build_dataset(args.val_data, tokenizer, dataset_type="val")
 
-    #TODO load opcode tensor that is available after build_dataset has finished
-    global opcode_tensor
-    opcode_tensor = torch.load(f'{args.out_dir}/train_opcode_tensor.pt')
+    if args.masking == "opcode":
+        global opcode_tensor
+        opcode_tensor = torch.load(f'{args.out_dir}/train_opcode_tensor.pt')
 
 
     data_collator = DataCollatorForLanguageModeling(

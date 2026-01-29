@@ -26,10 +26,9 @@ def get_token_ids_of_opcodes_to_mask(file_asm,
         for insn in program.values():
                 instList = insn.split()
                 opcode = instList[0]
-                tokenized_opcode= tokenizer(opcode)
+                opcode_token_id = tokenizer.convert_tokens_to_ids(opcode)
                 #should be only one token id so we can just flatten the array
                 #by using the first element
-                opcode_token_id = tokenized_opcode['input_ids'][0]
                 opcode_list.append(opcode_token_id)
                     
     opcode_tensor= torch.tensor(opcode_list, dtype=torch.long)      
