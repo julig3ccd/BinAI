@@ -75,6 +75,7 @@ def read_data(path, tokenizer, dataset):
     projects = sorted(os.listdir(path))
     print(f'***PROJECTS IN DATA DIRECTORY: {projects}')
     asm_list = []
+    tensor_list = []
     for proj in projects:
        with open(f'{path}/{proj}') as fp:
          data = json.load(fp)
@@ -82,12 +83,12 @@ def read_data(path, tokenizer, dataset):
        asm_list.append(proj_insn)  
        #TODO use masking arg from argsparser
        if args.create_opcode_ids==True:
-          global opcode_tensor
-          ocpode_tensor = torch.empty(dtype=torch.long)
-          proj_opcode_ids_tensor = get_token_ids_of_opcodes_to_mask(proj_insn,tokenizer=tokenizer)
-          opcode_tensor = torch.cat(ocpode_tensor, proj_opcode_ids_tensor)
-          opcode_tensor = torch.unique(opcode_tensor)
+          tensor_list.append(get_token_ids_of_opcodes_to_mask(proj_insn,tokenizer=tokenizer))
+
     if args.create_opcode_ids==True:
+        global opcode_tensor        
+        opcode_tensor = torch.cat(tensor_list, dim = 0)
+        opcode_tensor = torch.unique(opcode_tensor)
         torch.save(opcode_tensor, f'{args.out_dir}/{dataset}_opcode_tensor.pt')   
 
     return asm_list
