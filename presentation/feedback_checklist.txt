@@ -1,0 +1,19 @@
+BINAI Feedback:
+- Slides: 
+- 
+- Details train data (architecture , etc)
+- Details mlm
+- Details on masking strategy (maybe visualize)
+
+- DONE: Make the fonts in the pipeline graph bigger 
+- DONE: More details, maybe visualize filtering for fct pools  
+- DONE: top_k -> K number 
+
+TODO:
+- More experiments with different probabilities
+- Try to improve training performance
+
+Content feedback:
+- More details why we filter (to remove library fcts or very similar across optim level)
+- optional: Mention CLS as embedding
+- Pipeline -> warum nehmen wir clap (wegen token erhalt (opcodes bleiben ein token))
