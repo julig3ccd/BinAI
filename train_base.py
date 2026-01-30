@@ -173,7 +173,7 @@ def main(args):
         model = BertForMaskedLM(config)
     else:
         print(f"***LOAD MODEL FROM PRETRAINED CHECKPOINT: {args.checkpoint}")
-        BertForMaskedLM.from_pretrained(args.checkpoint)
+        model = BertForMaskedLM.from_pretrained(args.checkpoint)
 
     model.to(device)    
 
