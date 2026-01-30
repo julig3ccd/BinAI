@@ -103,7 +103,7 @@ def build_dataset(path, tokenizer, dataset_type):
     concat = None
     for proj in asm:
         print("before token")
-        tokens = tokenizer(proj, padding=True,return_tensors="pt")
+        tokens = tokenizer(proj,return_tensors="pt")
         dataset = ASM_Train_Dataset(tokens)
         print("before concat")
         if concat is None:
