@@ -18,7 +18,8 @@ class Parser:
         self.parser.add_argument("--val_data", type=str, default="data/preprocessed_test_data_val")
         self.parser.add_argument("--test_data", type=str, default="data/preprocessed_test_data/curl__pools.json")
         self.parser.add_argument("--create_opcode_ids", action="store_true")
-        self.parser.add_argument("--masking", type=str, default="MLM")
+        self.parser.add_argument("--masking", type=str, default="MLM"),
+        self.parser.add_argument("--result_file", type=str, default=None)
 
 
     def get_args(self):

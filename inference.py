@@ -4,6 +4,7 @@ from transformers import BertForMaskedLM, BertConfig, AutoTokenizer
 #from train_base import args
 import json
 import torch.nn.functional as F
+import numpy as np
 from collections import defaultdict
 from dataclasses import dataclass
 from tqdm import tqdm
@@ -11,6 +12,7 @@ from datetime import datetime
 from sklearn import metrics
 from utils.args_parser import Parser
 from statistics import mean
+
 
 
 def collate_anchor_data(batch):
@@ -221,7 +223,17 @@ def measure_nDCG(pred_sorted):
    for pool in pred_sorted.values():
       labels.append([ candidate["label"] for candidate in pool ])
       scores.append([ candidate["sim"] for candidate in pool ])
-   return metrics.ndcg_score(labels,scores) 
+
+   ndcg = []
+   for i in range(len(labels)):
+      for j, number in enumerate(scores[i]):
+         if number < 0:
+            scores[i][j] = 0
+      label = np.atleast_2d(np.asarray(labels[i], dtype =float).astype(float))
+      score = np.atleast_2d(np.asarray(scores[i], dtype =float))
+      ndcg.append(metrics.ndcg_score(label,score))
+
+   return mean(ndcg)
           
 
 def compute_cosine_similarity(args):
@@ -345,7 +357,10 @@ def take_measurements(args, file):
 
 
 def main(args):
-   result_filename =compute_cosine_similarity(args)
+   if args.result_file == None:
+      result_filename = compute_cosine_similarity(args)
+   else:
+      result_filename = args.result_file
    mrr, top_K, nDCG = take_measurements(args=args, file=result_filename)
    json.dump({"MRR": mrr,
                "TOPK": top_K,
