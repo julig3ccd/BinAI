@@ -125,6 +125,7 @@ class ASM_Train_Dataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         #print(f"encodings {idx} size", self.encodings['input_ids'][idx].size())
         print(f"encodings {idx} size", len(self.encodings['input_ids'][idx]))
+        #print(f"encodings {idx} size", len(self.encodings['input_ids'][idx]))
 
         return {
             'input_ids': self.encodings['input_ids'][idx],
@@ -180,6 +181,7 @@ def main(args):
 
     model.to(device)    
 
+    total_params = sum(p.numel() for p in model.parameters())
     wandb.init(
         project="BinAI-MLM",
         )
@@ -187,7 +189,6 @@ def main(args):
     training_args = TrainingArguments(output_dir="output",
                                       per_device_train_batch_size=args.batch_size,
                                     num_train_epochs=args.epochs,
-                                     logging_steps=10,
                                      eval_strategy="epoch",
                                     report_to="wandb",         
                                     run_name="bert-mlm-test",
