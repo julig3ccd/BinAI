@@ -109,7 +109,6 @@ def build_dataset(path, tokenizer, dataset_type, max_length=512):
     token_count = 0
     for proj in asm:
         print("before token")
-        # CRITICAL FIX: Tokenize first, then manually truncate (custom tokenizer doesn't support truncation param)
         tokens = tokenizer(proj, padding=False)
         
         # Manually truncate sequences that exceed max_length
@@ -204,8 +203,8 @@ def main(args):
     )
      
     def logging_collator(batch):
-      print(f"batch before datacollator: {len(batch)}" )
-      print(f"batch before datacollator: {batch[0]}" )
+    #   print(f"batch before datacollator: {len(batch)}" )
+    #   print(f"batch before datacollator: {batch[0]}" )
       result = data_collator(batch)
       print(f"Batch input_ids shape: {result['input_ids'].shape}")
       return result 
