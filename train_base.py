@@ -103,7 +103,7 @@ def build_dataset(path, tokenizer, dataset_type):
     concat = None
     for proj in asm:
         print("before token")
-        tokens = tokenizer(proj,return_tensors="pt")
+        tokens = tokenizer(proj, padding=False)
         dataset = ASM_Train_Dataset(tokens)
         print("before concat")
         if concat is None:
@@ -188,6 +188,7 @@ def main(args):
                                      eval_strategy="epoch",
                                     report_to="wandb",         
                                     run_name="bert-mlm-test",
+                                    learning_rate=args.lr,
                                     save_strategy="epoch",
                                     dataloader_num_workers=args.num_workers,
                                      fp16=True if deviceStr != "cpu" else False)
