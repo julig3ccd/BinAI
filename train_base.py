@@ -124,7 +124,6 @@ class ASM_Train_Dataset(torch.utils.data.Dataset):
     
     def __getitem__(self, idx):
         #print(f"encodings {idx} size", self.encodings['input_ids'][idx].size())
-        print(f"encodings {idx} size", len(self.encodings['input_ids'][idx]))
         #print(f"encodings {idx} size", len(self.encodings['input_ids'][idx]))
 
         return {
