@@ -179,6 +179,8 @@ def main(args):
         model = BertForMaskedLM.from_pretrained(args.checkpoint)
 
     model.to(device)    
+    model.gradient_checkpointing_enable()
+
 
     total_params = sum(p.numel() for p in model.parameters())
     wandb.init(
