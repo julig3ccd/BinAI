@@ -7,6 +7,8 @@
 mkdir -p "$HOME/slurm-logs" "$HOME/results"
 LOG="${HOME}/slurm-logs/${SLURM_JOB_NAME:-job}-${SLURM_JOB_ID:-noid}.log"
 exec > >(tee -a "$LOG") 2>&1
+PROJECT_DIR="$HOME/BinAI"
+mkdir -p "$PROJECT_DIR/output/slurm_run_${SLURM_JOB_ID}"
 
 set -Eeuo pipefail
 trap 'st=$?; echo "ERR on line $LINENO: $BASH_COMMAND (exit $st)"; exit $st' ERR
@@ -22,8 +24,7 @@ set -u
 python -V || true
 
 # Set up paths
-PROJECT_DIR="$HOME/BinAI"
-SRC_DATA="$HOME/data/final_preprocessed"
+SRC_DATA="$HOME/data/"
 [ -d "$SRC_DATA" ] || { echo "ERROR: SRC_DATA not found: $SRC_DATA"; exit 2; }
 
 # Copy dataset to local disk of computation node for faster access
@@ -33,7 +34,7 @@ mkdir -p "$JOB_TMP"; chmod 700 "$JOB_TMP"; export TMPDIR="$JOB_TMP"
 echo "JOB_TMP=$JOB_TMP"
 df -h "$JOB_LOCAL_BASE" | sed -n '1,2p'
 
-DST_DATA="$JOB_TMP/final_preprocessed"
+DST_DATA="$JOB_TMP/data"
 cp -r "$SRC_DATA" "$DST_DATA"
 echo "DATA_DST=$(readlink -f "$DST_DATA")"
 ls -la "$DST_DATA"
@@ -47,11 +48,11 @@ python train_base.py \
     --val_data "$DST_DATA/val" \
     --test_data "$DST_DATA/test" \
     --epochs 10 \
-    --batch_size 32 \
-    --lr 0.0001 \
+    --batch_size 64 \
+    --lr 0.001 \
     --num_workers 4 \
-    --num_hidden_layers 12 \
-    --num_heads 12 \
+    --num_hidden_layers 4 \
+    --num_heads 4 \
     --out_dir "$PROJECT_DIR/output/slurm_run_${SLURM_JOB_ID}" \
     --create_opcode_ids
 

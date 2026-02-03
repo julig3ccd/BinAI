@@ -98,12 +98,21 @@ def read_data(path, tokenizer, dataset):
     return asm_list
     
 
-def build_dataset(path, tokenizer, dataset_type):
+def build_dataset(path, tokenizer, dataset_type, max_length=128):
     asm = read_data(path, tokenizer, dataset_type)
+
     concat = None
     for proj in asm:
         print("before token")
         tokens = tokenizer(proj, padding=False)
+        all_seq_count = len(tokens['input_ids'])
+
+        tokens['input_ids'] = [seq for seq in tokens['input_ids'] if len(seq) < 128]
+        tokens['attention_mask'] = [mask for mask in tokens['attention_mask'] if len(mask) < 128]
+        
+        filtered_seq = len(tokens['input_ids'])
+
+        print (f"***** remaining sequences after max length 128 {filtered_seq/all_seq_count}")
         dataset = ASM_Train_Dataset(tokens)
         print("before concat")
         if concat is None:
@@ -183,6 +192,7 @@ def main(args):
 
 
     total_params = sum(p.numel() for p in model.parameters())
+    print("MODEL PARAMETERS: ", total_params)
     wandb.init(
         project="BinAI-MLM",
         )
@@ -190,6 +200,7 @@ def main(args):
     training_args = TrainingArguments(output_dir="output",
                                       per_device_train_batch_size=args.batch_size,
                                     num_train_epochs=args.epochs,
+                                     logging_steps=100,
                                      eval_strategy="epoch",
                                     report_to="wandb",         
                                     run_name="bert-mlm-test",
