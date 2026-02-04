@@ -20,8 +20,9 @@ class Parser:
         self.parser.add_argument("--create_opcode_ids", action="store_true")
         self.parser.add_argument("--masking", type=str, default="MLM"),
         self.parser.add_argument("--result_file", type=str, default=None)
-        self.parser.add_argument("--gradient_accumulation_steps", type=int, default=4,
+        self.parser.add_argument("--gradient_accumulation_steps", type=int, default=1,
                                 help="Number of gradient accumulation steps (default: 4). Simulates larger batch size.")
+        self.parser.add_argument("--max_seq_length", type=int, default=256)
 
 
     def get_args(self):

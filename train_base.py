@@ -107,8 +107,8 @@ def build_dataset(path, tokenizer, dataset_type, max_length=128):
         tokens = tokenizer(proj, padding=False)
         all_seq_count = len(tokens['input_ids'])
 
-        tokens['input_ids'] = [seq for seq in tokens['input_ids'] if len(seq) < 128]
-        tokens['attention_mask'] = [mask for mask in tokens['attention_mask'] if len(mask) < 128]
+        tokens['input_ids'] = [seq for seq in tokens['input_ids'] if len(seq) < max_length]
+        tokens['attention_mask'] = [mask for mask in tokens['attention_mask'] if len(mask) < max_length]
         
         filtered_seq = len(tokens['input_ids'])
 
@@ -150,8 +150,8 @@ def main(args):
     
     tokenizer = AutoTokenizer.from_pretrained("hustcw/clap-asm", trust_remote_code=True)
 
-    dataset_train = build_dataset(args.train_data, tokenizer, dataset_type="train")
-    dataset_val = build_dataset(args.val_data, tokenizer, dataset_type="val")
+    dataset_train = build_dataset(args.train_data, tokenizer, dataset_type="train", max_length=args.max_seq_length)
+    dataset_val = build_dataset(args.val_data, tokenizer, dataset_type="val", max_length=args.max_seq_length)
 
     if args.masking == "opcode":
         global opcode_tensor
@@ -168,7 +168,7 @@ def main(args):
         vocab_size= tokenizer.vocab_size,
         num_hidden_layers=args.num_hidden_layers,
         num_attention_heads=args.num_heads,
-        max_position_embeddings=1024 #match the max instr of tokenizer 1024
+        max_position_embeddings=args.max_seq_length  #match the max seq length of the input
     )
 
     if torch.cuda.is_available():
@@ -207,6 +207,7 @@ def main(args):
                                     learning_rate=args.lr,
                                     save_strategy="epoch",
                                     dataloader_num_workers=args.num_workers,
+                                    gradient_accumulation_steps=args.gradient_accumulation_steps,
                                      fp16=True if deviceStr != "cpu" else False)
 
     trainer = Trainer(model=model,
