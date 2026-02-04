@@ -9,7 +9,7 @@ class Parser:
         self.parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
         self.parser.add_argument("--model", type=str, help="Model name")
         self.parser.add_argument("--batch_size", type=int, default=8)
-        self.parser.add_argument("--num_heads", type=int, default=8)
+        self.parser.add_argument("--num_heads", type=int, default=4)
         self.parser.add_argument("--num_workers", type=int, default=4)
         self.parser.add_argument("--num_hidden_layers", type=int, default=4)
         self.parser.add_argument("--checkpoint", type=str, default=None)
