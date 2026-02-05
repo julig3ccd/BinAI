@@ -206,7 +206,6 @@ def main(args):
                                     report_to="wandb",         
                                     run_name="bert-mlm-test",
                                     learning_rate=args.lr,
-                                    warmup_ratio=0.1, 
                                     lr_scheduler_type="cosine",
                                     save_strategy="epoch",
                                     dataloader_num_workers=args.num_workers,
