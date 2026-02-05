@@ -201,6 +201,7 @@ def main(args):
                                       per_device_train_batch_size=args.batch_size,
                                     num_train_epochs=args.epochs,
                                      logging_steps=100,
+                                     warmup_ratio=0.1,           
                                      eval_strategy="epoch",
                                     report_to="wandb",         
                                     run_name="bert-mlm-test",
