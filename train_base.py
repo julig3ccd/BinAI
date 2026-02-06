@@ -10,7 +10,7 @@ from utils.masking import get_token_ids_of_opcodes_to_mask
 from utils.args_parser import Parser
 
 opcode_tensor = None
-split_probability = None
+split_propability = None
 
 
 
@@ -38,11 +38,11 @@ def mask_tokens_mod(
         )
 
         opcode_mask = torch.isin(inputs, opcode_tensor)
-        opcode_probability_matrix = torch.full(labels.shape, split_probability)
+        opcode_probability_matrix = torch.full(labels.shape, split_propability)
         opcode_probability_matrix.masked_fill_( ~opcode_mask, value=0.0)
 
         operand_mask = ~opcode_mask & ~no_mask_mask
-        operand_probability_matrix = torch.full(labels.shape, 1-split_probability)
+        operand_probability_matrix = torch.full(labels.shape, 1-split_propability)
         operand_probability_matrix.masked_fill_( ~operand_mask, value=0.0)
 
         both_probability_matrix = torch.add(opcode_probability_matrix, operand_probability_matrix)
@@ -167,8 +167,8 @@ def main(args):
     if args.masking == "opcode":
         global opcode_tensor
         opcode_tensor = torch.load(f'{args.out_dir}/train_opcode_tensor.pt')
-        global split_probability
-        split_probability = args.split_probability
+        global split_propability
+        split_propability = args.split_propability
 
 
     data_collator = DataCollatorForLanguageModeling(
