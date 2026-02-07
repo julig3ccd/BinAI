@@ -155,15 +155,26 @@ def build_test_dataset(args, pad_input, tokenizer):
      all_metadata.extend(metadata)
 
     tokenized_candidates = tokenizer(all_candidates,
-                                      padding=pad_input,
                                       return_tensors="pt")
+    cand_len = len(tokenized_candidates)
     tokenized_candidates = filter_tokens_max_seq_length(tokenized_candidates, args.max_seq_length)
+    filtered_cand_len = len(tokenized_candidates)
+    print(f"CREATE DATASET: removed {cand_len-filtered_cand_len} candidates")
+
+    print(f"CREATE DATASET: remaining candidates in % {(filtered_cand_len/cand_len)*100}")
+
 
     tokenized_anchors= tokenizer(anchors_asm,
-                                 padding=pad_input,
                                   return_tensors="pt")
+    anch_len = len(tokenized_anchors)
     
     tokenized_anchors =filter_tokens_max_seq_length(tokenized_anchors, args.max_seq_length)
+    filt_anch_len = len(tokenized_anchors)
+    
+    print(f"CREATE DATASET: removed {anch_len-filt_anch_len} anchors")
+    print(f"CREATE DATASET: remaining anchors in % {(filt_anch_len/anch_len)*100}")
+
+
    
     return ASM_Candidate_Dataset(anchor_ids=all_anchor_ids,
                             candidate_ids=all_candidate_ids,
@@ -206,7 +217,12 @@ def measure_top_K(pred_sorted, K=10, out_dict="out"):
       top_Ks[id]=top_k   
 
    json.dump(top_Ks, open(f'{out_dict}/{datetime.now()}_top_{K}_measures.json','w'))
-   return mean(top_Ks.values())
+   
+   if len(top_Ks.values()) == 0:
+      print(f"WARNING: NO TRUE POSITIVES IN TOP_{K} DETECTED")
+      return 0
+   else:
+      return mean(top_Ks.values())
 
 def measure_MRR(gt_idcs):
 
@@ -219,8 +235,11 @@ def measure_MRR(gt_idcs):
          #add up rr for each tp sample
          rr_sum += rr
       mrr.append(rr_sum/len(p_idcs))
-      
-   return mean(mrr)
+   if len(mrr)==0 :
+      print("WARNING: MRR list for MEAN calc was empty")
+      return 0
+   else:
+      return mean(mrr)
 
 def measure_nDCG(pred_sorted):
    labels = []
@@ -237,8 +256,12 @@ def measure_nDCG(pred_sorted):
       label = np.atleast_2d(np.asarray(labels[i], dtype =float).astype(float))
       score = np.atleast_2d(np.asarray(scores[i], dtype =float))
       ndcg.append(metrics.ndcg_score(label,score))
+   if len(ndcg) == 0:
+      print("NDCG LIST FOR MEAN CALC WAS EMPTY")
+      return 0
 
-   return mean(ndcg)
+   else:
+      return mean(ndcg)
           
 
 def compute_cosine_similarity(args):
