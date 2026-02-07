@@ -12,6 +12,7 @@ from datetime import datetime
 from sklearn import metrics
 from utils.args_parser import Parser
 from statistics import mean
+from train_base import filter_tokens_max_seq_length
 
 
 
@@ -112,9 +113,9 @@ def flatten_candidate_data(pool):
 
    return candidate_ids, candidates, labels, metadata
 
-def build_test_dataset(pad_input, tokenizer, path): 
+def build_test_dataset(args, pad_input, tokenizer): 
 
-    fct_pools_path = path
+    fct_pools_path = args.test_data
 
     with open(f'{fct_pools_path}', 'r') as f:
        pools = json.load(f)
@@ -156,9 +157,13 @@ def build_test_dataset(pad_input, tokenizer, path):
     tokenized_candidates = tokenizer(all_candidates,
                                       padding=pad_input,
                                       return_tensors="pt")
+    tokenized_candidates = filter_tokens_max_seq_length(tokenized_candidates, args.max_seq_length)
+
     tokenized_anchors= tokenizer(anchors_asm,
                                  padding=pad_input,
                                   return_tensors="pt")
+    
+    tokenized_anchors =filter_tokens_max_seq_length(tokenized_anchors, args.max_seq_length)
    
     return ASM_Candidate_Dataset(anchor_ids=all_anchor_ids,
                             candidate_ids=all_candidate_ids,
@@ -239,7 +244,7 @@ def measure_nDCG(pred_sorted):
 def compute_cosine_similarity(args):
     tokenizer = AutoTokenizer.from_pretrained("hustcw/clap-asm", trust_remote_code=True)
 
-    data_set_test, anch_ids, anch_in = build_test_dataset(path=args.test_data, pad_input=True, tokenizer=tokenizer)
+    data_set_test, anch_ids, anch_in = build_test_dataset(args, pad_input=True, tokenizer=tokenizer)
 
     anchor_data_set = ASM_Anchor_Dataset(ids=anch_ids,
                                           input=anch_in)

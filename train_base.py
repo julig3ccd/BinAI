@@ -96,7 +96,12 @@ def read_data(path, tokenizer, dataset):
         torch.save(opcode_tensor, f'{args.out_dir}/{dataset}_opcode_tensor.pt')   
 
     return asm_list
-    
+
+def filter_tokens_max_seq_length(tokens, max_length):
+    tokens['input_ids'] = [seq for seq in tokens['input_ids'] if len(seq) < max_length]
+    tokens['attention_mask'] = [mask for mask in tokens['attention_mask'] if len(mask) < max_length]
+    return tokens    
+
 
 def build_dataset(path, tokenizer, dataset_type, max_length=128):
     asm = read_data(path, tokenizer, dataset_type)
@@ -107,8 +112,7 @@ def build_dataset(path, tokenizer, dataset_type, max_length=128):
         tokens = tokenizer(proj, padding=False)
         all_seq_count = len(tokens['input_ids'])
 
-        tokens['input_ids'] = [seq for seq in tokens['input_ids'] if len(seq) < max_length]
-        tokens['attention_mask'] = [mask for mask in tokens['attention_mask'] if len(mask) < max_length]
+        tokens = filter_tokens_max_seq_length(tokens, max_length)
         
         filtered_seq = len(tokens['input_ids'])
 
