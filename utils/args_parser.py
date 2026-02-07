@@ -23,6 +23,7 @@ class Parser:
         self.parser.add_argument("--gradient_accumulation_steps", type=int, default=1,
                                 help="Number of gradient accumulation steps (default: 4). Simulates larger batch size.")
         self.parser.add_argument("--max_seq_length", type=int, default=256)
+        self.parser.add_argument("--split_propability", type=float, default=0.8)
 
 
     def get_args(self):

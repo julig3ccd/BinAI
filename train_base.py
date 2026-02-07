@@ -10,6 +10,7 @@ from utils.masking import get_token_ids_of_opcodes_to_mask
 from utils.args_parser import Parser
 
 opcode_tensor = None
+split_propability = None
 
 
 
@@ -37,7 +38,17 @@ def mask_tokens_mod(
         )
 
         opcode_mask = torch.isin(inputs, opcode_tensor)
-        no_mask_mask = no_mask_mask & ~opcode_mask
+        opcode_probability_matrix = torch.full(labels.shape, split_propability)
+        opcode_probability_matrix.masked_fill_( ~opcode_mask, value=0.0)
+
+        operand_mask = ~opcode_mask & ~no_mask_mask
+        operand_probability_matrix = torch.full(labels.shape, 1-split_propability)
+        operand_probability_matrix.masked_fill_( ~operand_mask, value=0.0)
+
+        both_probability_matrix = torch.add(opcode_probability_matrix, operand_probability_matrix)
+        mask_canditates_mask = torch.bernoulli(both_probability_matrix, generator=self.generator).bool()
+
+        no_mask_mask = no_mask_mask | ~mask_canditates_mask
 
 
         probability_matrix.masked_fill_(no_mask_mask, value=0.0)
@@ -160,6 +171,8 @@ def main(args):
     if args.masking == "opcode":
         global opcode_tensor
         opcode_tensor = torch.load(f'{args.out_dir}/train_opcode_tensor.pt')
+        global split_propability
+        split_propability = args.split_propability
 
 
     data_collator = DataCollatorForLanguageModeling(
@@ -210,7 +223,6 @@ def main(args):
                                     report_to="wandb",         
                                     run_name="bert-mlm-test",
                                     learning_rate=args.lr,
-                                    warmup_ratio=0.1, 
                                     lr_scheduler_type="cosine",
                                     save_strategy="epoch",
                                     dataloader_num_workers=args.num_workers,
