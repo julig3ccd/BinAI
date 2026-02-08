@@ -108,10 +108,24 @@ def read_data(path, tokenizer, dataset):
 
     return asm_list
 
-def filter_tokens_max_seq_length(tokens, max_length):
-    tokens['input_ids'] = [seq for seq in tokens['input_ids'] if len(seq) < max_length]
-    tokens['attention_mask'] = [mask for mask in tokens['attention_mask'] if len(mask) < max_length]
-    return tokens    
+def filter_tokens_max_seq_length(tokens, max_length, return_idcs=False):
+    idcs = []
+    filtered_input_ids = []
+    filtered_attention_mask = []
+    
+    for idx, seq in enumerate(tokens['input_ids']):
+        print("SEQLEN : ", len(seq))
+        if len(seq) < max_length:
+            idcs.append(idx)
+            filtered_input_ids.append(seq)
+            filtered_attention_mask.append(tokens['attention_mask'][idx])
+    
+    tokens['input_ids'] = filtered_input_ids
+    tokens['attention_mask'] = filtered_attention_mask
+    
+    if return_idcs:
+        return tokens, idcs
+    return tokens   
 
 
 def build_dataset(path, tokenizer, dataset_type, max_length=128):

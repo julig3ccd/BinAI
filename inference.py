@@ -23,6 +23,7 @@ def collate_anchor_data(batch):
 
     input_ids_padded = pad_sequence(input_ids, batch_first=True, padding_value=0)
     attention_mask_padded = pad_sequence(attention_mask, batch_first=True, padding_value=0)
+    print(f'padded input length for current anchor batch: {input_ids_padded.shape[1]}')
 
     return {
         'input_ids': input_ids_padded,
@@ -41,7 +42,7 @@ def collate_candidate_data(batch):
    input_ids_padded = pad_sequence(input_ids, batch_first=True, padding_value=0)
    attention_mask_padded = pad_sequence(attention_mask, batch_first=True, padding_value=0) 
 
-   print(f'padded input length for current batch: {len(input_ids_padded)}')
+   print(f'padded input length for current batch: {input_ids_padded.shape[1]}')
 
    return{
       'input_ids': input_ids_padded,
@@ -60,8 +61,8 @@ class ASM_Anchor_Dataset(torch.utils.data.Dataset):
    def __getitem__(self, idx):
        return {
           'id':self.ids[idx],
-          'input_ids':self.input['input_ids'][idx],
-          'attention_mask': self.input['attention_mask'][idx]
+          'input_ids':torch.tensor(self.input['input_ids'][idx]),
+          'attention_mask': torch.tensor(self.input['attention_mask'][idx])
        }      
 
 class ASM_Candidate_Dataset(torch.utils.data.Dataset):
@@ -86,8 +87,8 @@ class ASM_Candidate_Dataset(torch.utils.data.Dataset):
    
    def __getitem__(self,idx):
       return {
-         'input_ids': self.candidates['input_ids'][idx],
-         'attention_mask': self.candidates['attention_mask'][idx],
+         'input_ids': torch.tensor(self.candidates['input_ids'][idx]),
+         'attention_mask': torch.tensor(self.candidates['attention_mask'][idx]),
          'anchor_id': self.anchor_ids[idx],
          'label': self.labels[idx],
          'metadata': self.metadata[idx],
@@ -155,21 +156,22 @@ def build_test_dataset(args, pad_input, tokenizer):
      all_metadata.extend(metadata)
 
     tokenized_candidates = tokenizer(all_candidates,
-                                      return_tensors="pt")
-    cand_len = len(tokenized_candidates)
-    tokenized_candidates = filter_tokens_max_seq_length(tokenized_candidates, args.max_seq_length)
-    filtered_cand_len = len(tokenized_candidates)
+                                     padding=False,
+                                      )
+    cand_len = len(tokenized_candidates['input_ids'])
+    tokenized_candidates, cand_idcs = filter_tokens_max_seq_length(tokenized_candidates, args.max_seq_length, return_idcs=True)
+    filtered_cand_len = len(tokenized_candidates['input_ids'])
     print(f"CREATE DATASET: removed {cand_len-filtered_cand_len} candidates")
 
     print(f"CREATE DATASET: remaining candidates in % {(filtered_cand_len/cand_len)*100}")
 
 
     tokenized_anchors= tokenizer(anchors_asm,
-                                  return_tensors="pt")
-    anch_len = len(tokenized_anchors)
+                                 padding=False,
+                                  )
+    anch_len = len(tokenized_anchors['input_ids'])
     
-    tokenized_anchors =filter_tokens_max_seq_length(tokenized_anchors, args.max_seq_length)
-    filt_anch_len = len(tokenized_anchors)
+    tokenized_anchors, anch_idcs =filter_tokens_max_seq_length(tokenized_anchors, args.max_seq_length, return_idcs=True)
     
     print(f"CREATE DATASET: removed {anch_len-filt_anch_len} anchors")
     print(f"CREATE DATASET: remaining anchors in % {(filt_anch_len/anch_len)*100}")
@@ -292,7 +294,7 @@ def compute_cosine_similarity(args):
         vocab_size= tokenizer.vocab_size,
         num_hidden_layers=args.num_hidden_layers,
         num_attention_heads=args.num_heads,
-        max_position_embeddings=1024, #match the max instr of tokenizer 1024
+        max_position_embeddings=args.max_seq_length, #match the max instr of tokenizer 1024
       )
        model =BertForMaskedLM(config)
 
