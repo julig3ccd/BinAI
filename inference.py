@@ -202,8 +202,22 @@ def build_test_dataset(args, pad_input, tokenizer):
         'attention_mask': [tokenized_candidates['attention_mask'][i] for i in valid_candidate_idcs]
     }
     
-    removed_cands = len(valid_candidate_idcs) - filtered_cand_len
+    removed_cands = filtered_cand_len - len(valid_candidate_idcs)
     print(f"CREATE DATASET: removed {removed_cands} candidates due to filtered anchors")
+    
+    # LOG : print candidates left per pool after filtering
+    candidates_per_pool = defaultdict(int)
+    for anchor_id in all_anchor_ids:
+        candidates_per_pool[anchor_id] += 1
+    
+    total_pools = len(pools)
+    affected_pools = len(candidates_per_pool)
+    affected_percentage = (affected_pools / total_pools) * 100 if total_pools > 0 else 0
+    
+    print(f"\nINSPECT: {affected_pools}/{total_pools} pools affected ({affected_percentage}%) by max_seq_length with remaining candidates:")
+    for anchor_id in sorted(candidates_per_pool.keys()):
+        print(f"  Pool {anchor_id}: {candidates_per_pool[anchor_id]} candidates")
+    print()
 
    
     return ASM_Candidate_Dataset(anchor_ids=all_anchor_ids,
