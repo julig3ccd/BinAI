@@ -134,10 +134,10 @@ def build_test_dataset(args, pad_input, tokenizer):
 
 
     for anchor_id, pool in pools.items():
-    #then batch process candidates and look up their embedding with key during measurements
+      #then batch process candidates and look up their embedding with key during measurements
    
-    #for each pool move the asm to anchors asm list
-    #track their id in parrallel
+      #for each pool move the asm to anchors asm list
+      #track their id in parrallel
      anchor_ids.append(anchor_id)
      anchor_asm = pool["anchor"]["asm"]
      anchors_asm.append(anchor_asm)
@@ -159,8 +159,16 @@ def build_test_dataset(args, pad_input, tokenizer):
                                      padding=False,
                                       )
     cand_len = len(tokenized_candidates['input_ids'])
+
+    #### filter the candidates by length ####
     tokenized_candidates, cand_idcs = filter_tokens_max_seq_length(tokenized_candidates, args.max_seq_length, return_idcs=True)
+    #align all other parallel candidate arrays
+    all_anchor_ids = [all_anchor_ids[i] for i in cand_idcs]
+    all_candidate_ids = [all_candidate_ids[i] for i in cand_idcs]
+    all_labels = [all_labels[i] for i in cand_idcs]
+    all_metadata = [all_metadata[i] for i in cand_idcs]
     filtered_cand_len = len(tokenized_candidates['input_ids'])
+
     print(f"CREATE DATASET: removed {cand_len-filtered_cand_len} candidates")
 
     print(f"CREATE DATASET: remaining candidates in % {(filtered_cand_len/cand_len)*100}")
@@ -170,12 +178,32 @@ def build_test_dataset(args, pad_input, tokenizer):
                                  padding=False,
                                   )
     anch_len = len(tokenized_anchors['input_ids'])
-    
+    #### filter the anchors by length ####
     tokenized_anchors, anch_idcs =filter_tokens_max_seq_length(tokenized_anchors, args.max_seq_length, return_idcs=True)
+    #align all parallel anchor arrays
+    anchor_ids = [anchor_ids[i] for i in anch_idcs]
+    anchors_asm = [anchors_asm[i] for i in anch_idcs]
+    filt_anch_len = len(tokenized_anchors['input_ids'])
     
     print(f"CREATE DATASET: removed {anch_len-filt_anch_len} anchors")
     print(f"CREATE DATASET: remaining anchors in % {(filt_anch_len/anch_len)*100}")
 
+    #### filter candidates again to only include those that reference the anchors that are left ####
+    valid_anchor_ids_set = set(anchor_ids)
+    valid_candidate_idcs = [i for i, aid in enumerate(all_anchor_ids) if aid in valid_anchor_ids_set]
+    
+    # Apply filtering to all candidate parallel arrays
+    all_anchor_ids = [all_anchor_ids[i] for i in valid_candidate_idcs]
+    all_candidate_ids = [all_candidate_ids[i] for i in valid_candidate_idcs]
+    all_labels = [all_labels[i] for i in valid_candidate_idcs]
+    all_metadata = [all_metadata[i] for i in valid_candidate_idcs]
+    tokenized_candidates = {
+        'input_ids': [tokenized_candidates['input_ids'][i] for i in valid_candidate_idcs],
+        'attention_mask': [tokenized_candidates['attention_mask'][i] for i in valid_candidate_idcs]
+    }
+    
+    removed_cands = len(valid_candidate_idcs) - filtered_cand_len
+    print(f"CREATE DATASET: removed {removed_cands} candidates due to filtered anchors")
 
    
     return ASM_Candidate_Dataset(anchor_ids=all_anchor_ids,
