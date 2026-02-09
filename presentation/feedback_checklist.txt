@@ -1,9 +1,9 @@
 BINAI Feedback:
 - Slides: 
 - 
-- Details train data (architecture , etc)
-- Details mlm
-- Details on masking strategy (maybe visualize)
+- PARTLY DONE: Details train data (architecture , etc)
+- DONE: Details mlm
+- DONE: Details on masking strategy (maybe visualize)
 
 - DONE: Make the fonts in the pipeline graph bigger 
 - DONE: More details, maybe visualize filtering for fct pools  
@@ -15,5 +15,5 @@ TODO:
 
 Content feedback:
 - More details why we filter (to remove library fcts or very similar across optim level)
-- optional: Mention CLS as embedding
-- Pipeline -> warum nehmen wir clap (wegen token erhalt (opcodes bleiben ein token))
+- DONE: Mention CLS as embedding
+- DONE: Pipeline -> warum nehmen wir clap (wegen token erhalt (opcodes bleiben ein token))
