@@ -40,9 +40,10 @@ def mask_tokens_mod(
         opcode_mask = torch.isin(inputs, opcode_tensor)
         opcode_probability_matrix = torch.full(labels.shape, split_propability)
         opcode_probability_matrix.masked_fill_( ~opcode_mask, value=0.0)
-
+        num_operands_per_opcode = 5.19
         operand_mask = ~opcode_mask & ~no_mask_mask
-        operand_probability_matrix = torch.full(labels.shape, 1-split_propability)
+        #print("new split p", (1-split_propability)/ num_operands_per_opcode)
+        operand_probability_matrix = torch.full(labels.shape, (1-split_propability)/ num_operands_per_opcode)
         operand_probability_matrix.masked_fill_( ~operand_mask, value=0.0)
 
         both_probability_matrix = torch.add(opcode_probability_matrix, operand_probability_matrix)
@@ -114,7 +115,7 @@ def filter_tokens_max_seq_length(tokens, max_length, return_idcs=False):
     filtered_attention_mask = []
     
     for idx, seq in enumerate(tokens['input_ids']):
-        print("SEQLEN : ", len(seq))
+        #print("SEQLEN : ", len(seq))
         if len(seq) < max_length:
             idcs.append(idx)
             filtered_input_ids.append(seq)
